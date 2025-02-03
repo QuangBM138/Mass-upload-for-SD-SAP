@@ -1,2 +1,18 @@
-# Mass-upload-for-SD-SAP
-program create multiple sales order
+# Mass Upload for SD SAP
+
+**Description:**
+This project is designed to create multiple sales orders in SAP's Sales and Distribution (SD) module. It simplifies the process of bulk uploading sales order data into the SAP system, reducing manual entry time and minimizing errors.
+
+**Features:**
+- **Bulk Upload:** Efficiently upload multiple sales orders at once.
+- **Error Handling:** Robust error handling to ensure data integrity.
+- **User-Friendly Interface:** Easy-to-use interface for managing sales order data.
+- **Customization:** Flexible configuration options to adapt to different business requirements.
+
+**Technologies Used:**
+- **Primary Language:**
+  - ABAP (for SAP integration)
+- **SAP Technologies:**
+  - ALV (ABAP List Viewer) for displaying data
+  - BAPI (Business Application Programming Interface) for processing the creation of sales orders
+  - Compatibility with multiple platforms for uploading
