@@ -1,0 +1,24 @@
+*&---------------------------------------------------------------------*
+*& Include          Z03_FA24_GR08_UPEXO1_PAI100
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& MODULE user_command_0100 - PAI for screen 100
+*&---------------------------------------------------------------------*
+MODULE user_command_0100 INPUT.
+  " Call subroutine to handle user commands on screen 100
+  PERFORM handle_user_command_0100.
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  EXIT_COMMAND_0100_EVENT  INPUT
+*&---------------------------------------------------------------------*
+*       Handles exit command events
+*----------------------------------------------------------------------*
+MODULE exit_command_0100_event INPUT.
+  " Call subroutine to handle exit commands, passing the user command
+  PERFORM handle_exit_command USING sy-ucomm.
+ENDMODULE.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

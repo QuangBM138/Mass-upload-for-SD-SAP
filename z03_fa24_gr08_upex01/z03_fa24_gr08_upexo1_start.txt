@@ -1,0 +1,19 @@
+*&---------------------------------------------------------------------*
+*& Include          Z03_FA24_GR08_UPEXO1_START
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& START-OF-SELECTION
+*&---------------------------------------------------------------------*
+*& Initial processing: uploads and converts the file, then calls screen 100
+*&---------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  " Call subroutine to upload and convert the file data
+  PERFORM upload_and_convert_file.
+
+  " Call screen 100 to display the data
+  CALL SCREEN 100.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

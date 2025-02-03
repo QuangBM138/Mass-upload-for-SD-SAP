@@ -1,0 +1,47 @@
+*&---------------------------------------------------------------------*
+*& Include          Z03_FA24_GR08_UPEXO1_SEL
+*&---------------------------------------------------------------------*
+
+TABLES sscrfields.
+
+" Define function key 1 on the selection screen
+SELECTION-SCREEN FUNCTION KEY 1.
+
+INITIALIZATION.
+  " Set the text for the function key 1 as 'Download Template'
+  sscrfields-functxt_01 = 'Download Template'.
+
+" Define parameter for file selection (without OBLIGATORY to allow download action without validation)
+  PARAMETERS:
+    p_file TYPE localfile.
+*   p_file TYPE localfile OBLIGATORY. " Uncomment if upload is strictly required
+
+*&---------------------------------------------------------------------*
+*& SELECTION-SCREEN EVENTS
+*&---------------------------------------------------------------------*
+
+AT SELECTION-SCREEN.
+  " Check if the 'Download Template' button is clicked
+  IF sscrfields-ucomm = 'FC01'.
+    " Perform download action
+    PERFORM download.
+    " Exit here to avoid mandatory check for p_file
+    RETURN.
+  ENDIF.
+
+  " If the Download button is not clicked, validate that p_file is provided for upload
+  IF p_file IS INITIAL.
+    MESSAGE e000(Z03_FA24_GR08_MSGS).
+  ENDIF.
+
+*&---------------------------------------------------------------------*
+*& SELECTION-SCREEN EVENTS
+*&---------------------------------------------------------------------*
+
+" F4 help for file selection
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_file.
+  " Call subroutine to display file selection dialog
+  PERFORM sub_file_f4.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

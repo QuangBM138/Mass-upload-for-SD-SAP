@@ -1,0 +1,95 @@
+*&---------------------------------------------------------------------*
+*& Include          Z03_FA24_GR08_UPEXO1_CLASS
+*&---------------------------------------------------------------------*
+CLASS gcl_event_handler IMPLEMENTATION.
+
+  " Method to handle double-click events on the ALV grid
+  METHOD on_double_click.
+    DATA: lv_index       TYPE sy-tabix,         " Index of the selected row
+          lv_so          TYPE vbeln_va,         " Sales Order ID
+          lv_line_color  TYPE char4,            " Color code for line
+          lv_error_found TYPE abap_bool.
+    " Call subroutine to validate, save changes, and synchronize data
+    PERFORM check_save_and_sync_changes CHANGING lv_error_found.
+
+    " Get the index of the selected row in the header
+    lv_index = e_row-index.
+    READ TABLE gt_so_headers INTO gs_so_header INDEX lv_index.
+    IF sy-subrc = 0.
+      " Retrieve the Sales Order ID from the selected header row
+      lv_so = gs_so_header-salesorder.
+      lv_line_color = gs_so_header-line_color.
+
+      " Call subroutine to filter items associated with this Sales Order
+      PERFORM filter_items USING lv_so lv_line_color.
+    ENDIF.
+  ENDMETHOD.
+
+  " Method to convert a column index into Excel-style column letters
+  METHOD get_excel_col.
+
+    " Input - Output
+    " 1      - A
+    " 26     - Z
+    " 27     - AA
+    " ...
+    " 16384  - XFD (maximum columns for Excel 2007 and later)
+
+    DATA: l_col_temp TYPE i,                   " Temporary column variable
+          l_mod      TYPE i.                   " Remainder for conversion
+
+    l_col_temp = i_col.
+
+    WHILE l_col_temp > 0.
+      l_mod = ( l_col_temp - 1 ) MOD 26.
+      r_column = sy-abcde+l_mod(1) && r_column.
+      l_col_temp = ( l_col_temp - l_mod ) / 26.
+    ENDWHILE.
+
+  ENDMETHOD.
+
+  METHOD on_close.
+    " Free the container when the dialog box is closed
+    sender->free( ).
+  ENDMETHOD.
+
+  METHOD handle_data_changed.
+    DATA: ls_deleted_rows LIKE LINE OF er_data_changed->mt_deleted_rows.
+
+* Check if rows are marked for deletion in headers
+    DESCRIBE TABLE er_data_changed->mt_deleted_rows LINES sy-index.
+    IF sy-index IS NOT INITIAL.
+      gf_deleted_headers = 'X'.
+
+* Backup current header data to temporary table
+      gt_temp_headers[] = gt_so_headers[].
+
+* Clear the deleted rows table to prevent actual deletion
+      CLEAR er_data_changed->mt_deleted_rows.
+    ENDIF.
+
+  ENDMETHOD.                    " handle_data_changed
+
+  METHOD handle_changed_finished.
+* If deletion was attempted, restore the original header data
+    IF gf_deleted_headers = 'X'.
+      gt_so_headers[] = gt_temp_headers[].
+      CLEAR: gf_deleted_headers, gt_temp_headers.
+      REFRESH gt_temp_headers.
+    ENDIF.
+
+
+* Refresh alv display
+    CALL METHOD go_alv_grid_header->refresh_table_display
+      EXCEPTIONS
+        finished = 1
+        OTHERS   = 2.
+    IF sy-subrc <> 0.
+      MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+                 WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 DISPLAY LIKE 'E'.
+    ENDIF.
+  ENDMETHOD.                    " handle_changed_finished
+ENDCLASS.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

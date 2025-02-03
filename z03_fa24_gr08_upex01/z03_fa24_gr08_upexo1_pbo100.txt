@@ -1,0 +1,25 @@
+*&---------------------------------------------------------------------*
+*& Include          Z03_FA24_GR08_UPEXO1_PBO100
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_0100 OUTPUT
+*&---------------------------------------------------------------------*
+*& Sets up the status and title for screen 100 and initializes ALV containers
+*&---------------------------------------------------------------------*
+MODULE status_0100 OUTPUT.
+  " Set the GUI status for screen 100
+  IF gt_messages IS INITIAL.
+    SET PF-STATUS 'ZSTATUS_001' EXCLUDING 'LOGM'.
+  ELSE.
+    SET PF-STATUS 'ZSTATUS_001'.
+  ENDIF.
+  " Set the title bar for screen 100
+  SET TITLEBAR 'ZTITLE_001'.
+
+  " Call subroutine to initialize containers and ALV grid for screen 100
+  PERFORM setup_containers_and_alv_0100.
+ENDMODULE.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

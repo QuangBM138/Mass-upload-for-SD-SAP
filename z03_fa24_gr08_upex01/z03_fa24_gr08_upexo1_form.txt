@@ -1,0 +1,3930 @@
+*&---------------------------------------------------------------------*
+*& Include          Z03_FA24_GR08_UPEXO1_FORM
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Form  SUB_FILE_F4 - F4 Help for File Selection
+*&---------------------------------------------------------------------*
+*& Provides F4 help for file selection, allowing users to choose a file
+*& from the system. Only .xlsx files are accepted.
+*&---------------------------------------------------------------------*
+FORM sub_file_f4.
+  DATA: l_rcode TYPE i.                   " Return code variable
+
+  " Call F4_FILENAME to display a file selection dialog, compatible with both SAP GUI and WebGUI
+  CALL FUNCTION 'F4_FILENAME'
+    EXPORTING
+      program_name  = syst-cprog           " Current program name
+      dynpro_number = syst-dynnr           " Current screen number
+    IMPORTING
+      file_name     = p_file.              " Selected file name
+
+  " Check file format, accepting only .xlsx or .xls extensions
+  IF p_file IS NOT INITIAL.
+    IF p_file CP '*.xlsx'.                 " Valid file format
+      " Continue processing if format is correct
+    ELSE.
+      " Display error if the file is not in Excel format
+      MESSAGE s004(z03_fa24_gr08_msgs) DISPLAY LIKE 'E'.
+      CLEAR p_file.
+      LEAVE LIST-PROCESSING.
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& FORM DISPLAY_ALV - Display ALV in the provided container
+*&---------------------------------------------------------------------*
+*& This form displays the data in an ALV (ABAP List Viewer) grid within
+*& the specified container.
+*&---------------------------------------------------------------------*
+FORM display_alv USING it_data       TYPE ANY TABLE          " Data to display
+                          io_alv_grid TYPE REF TO cl_gui_alv_grid  " ALV grid reference
+                          iv_title    TYPE string.                 " Title for ALV
+
+  " Build the field catalog for ALV display
+  PERFORM build_fieldcat USING it_data iv_title.
+
+*  DATA: iexclude TYPE ui_functions,
+*        xexclude TYPE ui_func.
+*
+*  DEFINE macro_exclude.
+*    xexclude = &1.
+*     APPEND xexclude TO iexclude.
+*  END-OF-DEFINITION.
+*
+*  macro_exclude cl_gui_alv_grid=>mc_fc_loc_copy_row.
+*  macro_exclude cl_gui_alv_grid=>mc_fc_loc_delete_row.
+*  macro_exclude cl_gui_alv_grid=>mc_fc_loc_append_row.
+*  macro_exclude cl_gui_alv_grid=>mc_fc_loc_insert_row.
+*  macro_exclude cl_gui_alv_grid=>mc_fc_loc_move_row.
+*  macro_exclude cl_gui_alv_grid=>mc_fc_loc_copy.
+*  macro_exclude cl_gui_alv_grid=>mc_fc_loc_cut.
+*  macro_exclude cl_gui_alv_grid=>mc_fc_loc_paste.
+*  macro_exclude cl_gui_alv_grid=>mc_fc_loc_paste_new_row.
+*  macro_exclude cl_gui_alv_grid=>mc_fc_loc_undo.
+*  macro_exclude cl_gui_alv_grid=>mc_ly_no_delete_rows.
+
+
+  " Display data in ALV
+  CALL METHOD io_alv_grid->set_table_for_first_display
+    EXPORTING
+      i_structure_name = 'TY_SALES_ORDER'  " Appropriate structure for header or item
+      i_save           = 'A'               " Enable saving ALV grid layout
+      i_default        = 'X'               " Enable edit mode
+      is_layout        = gs_layout         " Layout settings for ALV
+*     it_toolbar_excluding = iexclude
+    CHANGING
+      it_outtab        = it_data           " Output data table
+      it_fieldcatalog  = gt_fieldcat       " Field catalog for ALV
+    EXCEPTIONS
+      OTHERS           = 1.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form BUILD_FIELDCAT - Build Field Catalog for ALV
+*&---------------------------------------------------------------------*
+*& This form builds the field catalog for displaying data in an ALV grid,
+*& setting different configurations based on whether the data is for
+*& Sales Order header or item details.
+*&---------------------------------------------------------------------*
+FORM build_fieldcat USING it_data TYPE ANY TABLE iv_title TYPE string.
+
+  DATA: ls_fieldcat TYPE lvc_s_fcat.  " Field Catalog structure (LVC)
+
+  " Clear the field catalog, layout, and field catalog structure
+  CLEAR: gt_fieldcat, gs_layout.
+
+  " Set layout properties for conditional formatting in ALV
+  gs_layout-info_fname = 'LINE_COLOR'.  " Field for line color display
+  gs_layout-stylefname = 'CELLTAB'.     " Use CELLTAB to control cell styles
+  gs_layout-no_rowins = 'X'. "new_change
+
+  " Determine if the field catalog is for header or item data based on title
+  IF iv_title = gv_headers_sheet.
+    " Building field catalog for Sales Order header data
+
+    " 1. Sales Order Temp
+    CLEAR: ls_fieldcat, gv_cnt.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SALESORDER'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'SO Temp'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    "  Sales Order  "new_change
+    CLEAR: ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SALESORDERCR'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Sales Order'.
+    ls_fieldcat-ref_field   = 'VBELN'.
+    ls_fieldcat-ref_table   = 'VBAK'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 2. Order Type
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname   = 'ORDERTYPE'.
+    ls_fieldcat-col_pos     = gv_cnt.
+    ls_fieldcat-reptext     = 'Order Type'.
+    ls_fieldcat-tabname     = 'gt_so_headers'.
+    ls_fieldcat-col_opt     = 'X'.
+    ls_fieldcat-edit        = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'AUART'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 3. Sales Organization
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SALESORG'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Sales Organization'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'VKORG'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 4. Distribution Channel
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'DISTCHANNEL'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Distribution Channel'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'VTWEG'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 5. Division
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'DIVISION'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Division'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'SPART'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 6. Sales Office
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SALESOFFICE'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Sales Office'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'VKBUR'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 7. Sales Group
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SALESGROUP'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Sales Group'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'VKGRP'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    "8. Sales District
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SALESDISTRICT'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Sales District'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAP'.
+    ls_fieldcat-ref_field = 'BZIRK_ANA'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 9. Sold-to Party
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SOLDTOPARTY'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Sold-to Party'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'KUNNR'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 10. Ship-to Party
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SHIPTOPARTY'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Ship-to Party'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+*    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'KUWEV'.
+    ls_fieldcat-ref_field = 'KUNNR'.
+*    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 11. Customer Reference
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'CUSTREF'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Customer Reference'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'BSTNK'.
+*    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 12. Requested Delivery Date
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'REQUESTEDDELDATE'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Requested Delivery Date'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VSVBAK_CN'. " check
+    ls_fieldcat-ref_field = 'VDATU'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 13. Sales Document Currency
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SALESDOCCUR'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Sales Document Currency'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+*    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'WAERK'.
+*    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 14. Payment Terms
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'PAYMENTTERMS'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Payment Terms'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'DFKK_VT_I'.  "check
+    ls_fieldcat-ref_field = 'CB_DZTERM'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 15. Shipping Conditions
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SHIPPINGCOND'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Shipping Conditions'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'VSBED'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 16. Pricing Date
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'PRICINGDATE'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Pricing Date'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBKD'.
+    ls_fieldcat-ref_field = 'PRSDT'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 17. Delivery Block
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'DELIVERYBLOCK'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Delivery Block'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'LIFSK'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 18. Billing Block
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'BILLINGBLOCK'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Billing Block'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'FAKSK'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 19. Order Reason
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'ORDERREASON'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Order Reason'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAK'.
+    ls_fieldcat-ref_field = 'AUGRU'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+
+    " 20. Reference Sales Order Number
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'REFSONUM'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Reference Sales Order Number'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_field   = 'VBELN'.
+    ls_fieldcat-ref_table   = 'VBAK'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+
+    " 21. Reference Billing Document Number
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'REFBILLDOCNUM'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Reference Billing Document Number'.
+    ls_fieldcat-tabname   = 'gt_so_headers'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_field   = 'VBELN'.
+    ls_fieldcat-ref_table   = 'VBRK'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+*    " 19. Sales Region
+*    CLEAR ls_fieldcat.
+*    ls_fieldcat-fieldname = 'SALESREGION'.
+*    ls_fieldcat-reptext   = 'Sales Region'.
+*    ls_fieldcat-tabname   = 'gt_so_headers'.
+*    ls_fieldcat-col_opt   = 'X'.
+*    ls_fieldcat-edit      = 'X'.
+*    APPEND ls_fieldcat TO gt_fieldcat.
+
+  ELSEIF iv_title = gv_items_sheet.
+    " Build field catalog for item data
+    gs_layout-no_rowmark = abap_true.
+    " 1. Sales Order
+    CLEAR: ls_fieldcat, gv_cnt.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SALESORDER'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'SO Temp'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 2. Material
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'MATERIAL'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Material'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAP'.
+    ls_fieldcat-ref_field = 'MATNR'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 3. Order Quantity
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'ORDERQTY'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Order Quantity'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-ref_table  = 'VBAP'.  "reference tabname
+    ls_fieldcat-ref_field = 'KWMENG'. "reference
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-qfieldname = 'ORDERQTYUNIT'. "new_change
+*    ls_fieldcat-quantity = 'DZIEME'.
+*    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+*    " 4. Order Quantity Unit
+*    CLEAR ls_fieldcat.
+*    gv_cnt += 1.
+*    ls_fieldcat-fieldname = 'ORDERQTYUNIT'.
+*    ls_fieldcat-col_pos   = gv_cnt.
+*    ls_fieldcat-reptext   = 'Order Quantity Unit'.
+*    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+**    ls_fieldcat-ref_table  = 'VBAP'.  "reference tabname
+**    ls_fieldcat-ref_field = 'KWMENG'. "reference
+**    ls_fieldcat-QFIELDNAME = .
+*    ls_fieldcat-col_opt   = 'X'.
+*    ls_fieldcat-edit      = 'X'.
+*    ls_fieldcat-ref_table = 'VBAP'.
+*    ls_fieldcat-ref_field = 'VRKME'.
+*    ls_fieldcat-f4availabl  = abap_true.
+*    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 5. Item
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'ITEM'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Item'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAP'.
+    ls_fieldcat-ref_field = 'POSNR'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 6. Schedule Line
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'SCHEDULELINE'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Schedule Line'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBEP'.
+    ls_fieldcat-ref_field = 'ETENR'. " view again
+*    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 7. Delivery Date
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'DELIVERYDATE'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Delivery Date'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBLK'.
+    ls_fieldcat-ref_field = 'LFDAT'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 8. Plant
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'PLANT'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Plant'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'AFPO'.
+    ls_fieldcat-ref_field = 'PWERK'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 9. Storage Location
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'STORAGELOC'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Storage Location'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'AFPO'.
+    ls_fieldcat-ref_field = 'LGORT'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 10. Delivery Item Category
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'ITEMCAT'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Item Category'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAP'.
+    ls_fieldcat-ref_field = 'PSTYV'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 11. Condition Type
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'CONDITIONTYPE'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Condition Type'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'KONP'.
+    ls_fieldcat-ref_field = 'KSCHL'.
+    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 12. Net Price
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'NETPRICE'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Net Price'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAP'.
+    ls_fieldcat-ref_field = 'NETPR'.
+    ls_fieldcat-cfieldname = 'CURRENCY'. "new_change
+*    ls_fieldcat-currency = 'VND'.
+*    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    " 13. Pricing Unit
+    CLEAR ls_fieldcat.
+    gv_cnt += 1.
+    ls_fieldcat-fieldname = 'PRIUNIT'.
+    ls_fieldcat-col_pos   = gv_cnt.
+    ls_fieldcat-reptext   = 'Pricing Unit'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-col_opt   = 'X'.
+    ls_fieldcat-edit      = 'X'.
+    ls_fieldcat-ref_table = 'VBAP'.
+    ls_fieldcat-ref_field = 'KPEIN'.
+*    ls_fieldcat-f4availabl  = abap_true.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    CLEAR ls_fieldcat.
+    ls_fieldcat-fieldname = 'CURRENCY'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-no_out = 'X'.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+    CLEAR ls_fieldcat.
+    ls_fieldcat-fieldname = 'ORDERQTYUNIT'.
+    ls_fieldcat-tabname   = 'gt_so_items_filtered'.
+    ls_fieldcat-no_out = 'X'.
+    APPEND ls_fieldcat TO gt_fieldcat.
+
+
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& FORM filter_items
+*&---------------------------------------------------------------------*
+*& Filters the Sales Order items based on the selected Sales Order ID,
+*& applies styles, and updates the ALV grid display with the filtered data.
+*&---------------------------------------------------------------------*
+FORM filter_items USING iv_salesorder TYPE vbeln_va
+                          iv_line_color TYPE char4.
+
+  " Clear the previously filtered item data table
+  CLEAR gt_so_items_filtered.
+
+  " Check if the Sales Order ID is valid
+  IF iv_salesorder IS NOT INITIAL.
+    " Filter data based on the selected Sales Order ID
+    LOOP AT gt_so_items INTO gs_so_item WHERE salesorder = iv_salesorder.
+      CLEAR gs_so_item_filtered-celltab.        " Clear old styles, if any
+
+      " Manually map the fields
+      MOVE-CORRESPONDING gs_so_item TO gs_so_item_filtered.
+
+      " Assign the index from sy-tabix - position of the row in the original table
+      gs_so_item_filtered-index = sy-tabix.
+
+      " Set line color for the filtered row
+      gs_so_item_filtered-line_color = iv_line_color.
+
+      " Append the filtered row to the filtered items table
+      APPEND gs_so_item_filtered TO gt_so_items_filtered.
+    ENDLOOP.
+
+    " If the line color indicates 'created', apply additional styling
+    IF iv_line_color = gv_color_success.
+      LOOP AT gt_so_items_filtered INTO gs_so_item_filtered.
+        " Build the field catalog specifically for filtered items
+        PERFORM build_fieldcat USING gt_so_items_filtered gv_items_sheet.
+
+        " Apply the 'disabled' style to all fields in the filtered row
+        LOOP AT gt_fieldcat ASSIGNING FIELD-SYMBOL(<fs_fcat>).
+          INSERT VALUE lvc_s_styl( style = go_alv_grid_item->mc_style_disabled fieldname = <fs_fcat>-fieldname ) INTO TABLE gs_so_item_filtered-celltab.
+        ENDLOOP.
+
+        " Update the filtered items table with the modified row
+        MODIFY gt_so_items_filtered FROM gs_so_item_filtered.
+      ENDLOOP.
+    ENDIF.
+
+    " Refresh the ALV display with the newly filtered data
+    PERFORM refresh_items_alv.
+
+  ELSE.
+    " Display an error message if the Sales Order ID is empty
+    MESSAGE s005(z03_fa24_gr08_msgs) DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form refresh_items_alv
+*&---------------------------------------------------------------------*
+*& Refreshes the ALV grid to display updated item data after filtering
+*&---------------------------------------------------------------------*
+FORM refresh_items_alv.
+
+  " Check if the ALV grid for items is initialized
+  IF go_alv_grid_item IS NOT INITIAL.
+
+*    DATA: iexclude TYPE ui_functions,
+*          xexclude TYPE ui_func.
+*
+*    DEFINE macro_exclude.
+*      xexclude = &1.
+*       APPEND xexclude TO iexclude.
+*    END-OF-DEFINITION.
+*
+*    macro_exclude cl_gui_alv_grid=>mc_fc_loc_copy_row.
+*    macro_exclude cl_gui_alv_grid=>mc_fc_loc_delete_row.
+*    macro_exclude cl_gui_alv_grid=>mc_fc_loc_append_row.
+*    macro_exclude cl_gui_alv_grid=>mc_fc_loc_insert_row.
+*    macro_exclude cl_gui_alv_grid=>mc_fc_loc_move_row.
+*    macro_exclude cl_gui_alv_grid=>mc_fc_loc_copy.
+*    macro_exclude cl_gui_alv_grid=>mc_fc_loc_cut.
+*    macro_exclude cl_gui_alv_grid=>mc_fc_loc_paste.
+*    macro_exclude cl_gui_alv_grid=>mc_fc_loc_paste_new_row.
+*    macro_exclude cl_gui_alv_grid=>mc_fc_loc_undo.
+
+    " Set the ALV grid display for the filtered items table
+    CALL METHOD go_alv_grid_item->set_table_for_first_display
+      EXPORTING
+        i_structure_name = 'TY_SO_ITEM'           " Use ty_so_item structure for the Field Catalog
+        i_save           = 'A'                    " Allow saving of ALV grid layout
+        i_default        = 'X'                    " Enable default layout
+        is_layout        = gs_layout              " Apply defined layout settings
+*       it_toolbar_excluding = iexclude
+      CHANGING
+        it_outtab        = gt_so_items_filtered   " Table containing filtered data with include and index fields
+        it_fieldcatalog  = gt_fieldcat.           " Field catalog with fields from ty_so_item structure
+
+
+    " Refresh the display of the ALV grid for items
+    CALL METHOD go_alv_grid_item->refresh_table_display.
+
+    " Refresh the display of the ALV grid for headers (if needed)
+    CALL METHOD go_alv_grid_header->refresh_table_display.
+  ENDIF.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form sync_so_data
+*&---------------------------------------------------------------------*
+*& Synchronizes changes from the filtered items table back to the original
+*& items table (gt_so_items) using the original index.
+*&---------------------------------------------------------------------*
+FORM sync_so_data.
+
+  DATA: lv_index TYPE sy-tabix.          " Variable to store the record index
+*        gs_so_item_orig TYPE ty_so_item. " Work area for the original gt_so_items table (if needed)
+
+
+
+  " Update changes from the filtered table back to the original gt_so_items table
+  LOOP AT gt_so_items_filtered INTO gs_so_item_filtered.
+    " Retrieve the index of the record in the original table
+    lv_index = gs_so_item_filtered-index.
+
+    " Read data from the original table using the index
+    READ TABLE gt_so_items INTO gs_so_item INDEX lv_index.
+    IF sy-subrc = 0.
+      " Update the original data with values from the filtered table
+      MOVE-CORRESPONDING gs_so_item_filtered TO gs_so_item.
+
+      " Use the index to update the original table
+      MODIFY gt_so_items FROM gs_so_item INDEX lv_index.
+    ENDIF.
+  ENDLOOP.
+
+  "new_change
+  LOOP AT gt_so_items INTO DATA(ls_so_it_in).
+    DATA ext_netprice TYPE bapicurr-bapicurr.
+    PERFORM convert_currency_to_ext_ref USING ls_so_it_in-currency
+                                              ls_so_it_in-netprice
+                                        CHANGING ext_netprice.
+    IF ext_netprice IS NOT INITIAL.
+      ls_so_it_in-netprice = CONV netpr( ext_netprice ).
+      MODIFY gt_so_items FROM ls_so_it_in.
+    ENDIF.
+  ENDLOOP.
+
+  "new_change
+  LOOP AT gt_so_headers INTO gs_so_header.
+    gs_so_header-shiptoparty = gs_so_header-soldtoparty.
+    PERFORM get_salesdoc_currency USING     gs_so_header-salesorg
+                                             gs_so_header-soldtoparty
+                                             gs_so_header-distchannel
+                                             gs_so_header-division
+                                             CHANGING gs_so_header-salesdoccur.
+    LOOP AT gt_so_items INTO DATA(ls_so_item) WHERE salesorder = gs_so_header-salesorder.
+      PERFORM  get_unit_quantity USING  ls_so_item-Material
+                                     CHANGING ls_so_item-orderqtyunit.
+      PERFORM map_currency USING ls_so_item-SalesOrder
+                           CHANGING ls_so_item-Currency.
+      MODIFY gt_so_items FROM ls_so_item.
+    ENDLOOP.
+    MODIFY gt_so_headers FROM gs_so_header.
+  ENDLOOP.
+
+  "new_change
+  LOOP AT gt_so_items INTO DATA(ls_so_it_out).
+    DATA net_price      TYPE bapicurx-bapicurx.
+    net_price = CONV bapicurx-bapicurx( ls_so_it_out-netprice ).
+    PERFORM convert_currency_to_internal USING ls_so_it_out-Currency
+                                                net_price
+                                         CHANGING ls_so_it_out-NetPrice.
+    MODIFY gt_so_items FROM ls_so_it_out.
+  ENDLOOP.
+ENDFORM.
+
+
+
+
+*&---------------------------------------------------------------------*
+*& Form check_save_and_sync_changes
+*&---------------------------------------------------------------------*
+*& Checks and saves any unsaved changes in the ALV grids for the header
+*& and item data, then synchronizes changes from the filtered table to
+*& the original table.
+*&---------------------------------------------------------------------*
+
+FORM check_save_and_sync_changes CHANGING p_lv_error_found TYPE abap_bool.
+
+  DATA: lv_error_found_header TYPE abap_bool VALUE abap_false,
+        lv_error_found_item   TYPE abap_bool VALUE abap_false,
+        lv_error_found_soToPa TYPE abap_bool VALUE abap_true,
+        lv_error_found        TYPE abap_bool VALUE abap_false.
+
+  " 1. Check and save changes in the ALV grid for the header data
+  IF go_alv_grid_header IS NOT INITIAL.
+    CALL METHOD go_alv_grid_header->check_changed_data
+      IMPORTING
+        e_valid = lv_error_found_header.     " Entries are Consistent
+  ENDIF.
+
+  " 2. Check and save changes in the ALV grid for the item data before re-filtering
+  IF go_alv_grid_item IS NOT INITIAL.
+    CALL METHOD go_alv_grid_item->check_changed_data
+      IMPORTING
+        e_valid = lv_error_found_item.  " Entries are consistent
+  ENDIF.
+
+  PERFORM check_soToPa USING lv_error_found_soToPa.
+
+  " Consolidate errors from both header and item checks
+  IF lv_error_found_header = abap_false
+    OR lv_error_found_item = abap_false
+    OR lv_error_found_soToPa = abap_false.
+    lv_error_found = abap_false.
+  ELSE.
+    lv_error_found = abap_true.
+  ENDIF.
+
+  " Synchronize changes or return error flag
+  IF lv_error_found = abap_true.
+    PERFORM sync_so_data.
+  ELSE.
+    p_lv_error_found = lv_error_found.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form add_padding_multiple_fields
+*&---------------------------------------------------------------------*
+*& Adds leading zero padding to multiple fields simultaneously using
+*& the function module CONVERSION_EXIT_ALPHA_INPUT.
+*&---------------------------------------------------------------------*
+FORM add_padding_multiple_fields USING p_field.
+
+  FIELD-SYMBOLS: <fs_field> TYPE any.   " Generic field symbol for dynamic assignment
+
+  " Dynamically assign the field passed as parameter
+  ASSIGN p_field TO <fs_field>.
+
+  " Check if the assignment was successful
+  IF sy-subrc = 0.
+    " Apply ALPHA conversion exit to add leading zeros to the field
+    CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+      EXPORTING
+        input  = <fs_field>
+      IMPORTING
+        output = <fs_field>.
+  ENDIF.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form conversion_output_fields
+*&---------------------------------------------------------------------*
+*& Removes leading zero padding from multiple fields simultaneously using
+*& the function module CONVERSION_EXIT_ALPHA_OUTPUT.
+*&---------------------------------------------------------------------*
+FORM conversion_output_fields USING p_field.
+
+  FIELD-SYMBOLS: <fs_field> TYPE any.   " Generic field symbol for dynamic assignment
+
+  " Dynamically assign the field passed as parameter
+  ASSIGN p_field TO <fs_field>.
+
+  " Check if the assignment was successful
+  IF sy-subrc = 0.
+    " Apply ALPHA conversion exit to remove leading zeros from the field
+    CALL FUNCTION 'CONVERSION_EXIT_ALPHA_OUTPUT'
+      EXPORTING
+        input  = <fs_field>
+      IMPORTING
+        output = <fs_field>.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form upload_and_convert_file
+*&---------------------------------------------------------------------*
+*& Uploads an Excel file, converts it to XSTRING format, and processes
+*& the data by reading specific worksheets.
+*&---------------------------------------------------------------------*
+FORM upload_and_convert_file.
+
+  " Data for Excel integration using cl_fdt_xl_spreadsheet
+  DATA: lv_filename       TYPE string,        " Filename from input
+        lv_headerxstring  TYPE xstring,       " XSTRING for file header
+        lt_worksheets     TYPE TABLE OF string, " Table of worksheet names
+        lt_records        TYPE solix_tab,     " Binary data table for file
+        lv_filelength     TYPE i,             " Length of the uploaded file
+        lv_worksheet_name TYPE string.        " Current worksheet name
+
+  lv_filename = p_file.
+
+  " Read the input file in binary format
+  CALL FUNCTION 'GUI_UPLOAD'
+    EXPORTING
+      filename                = lv_filename
+      filetype                = 'BIN'
+    IMPORTING
+      filelength              = lv_filelength
+      header                  = lv_headerxstring
+    TABLES
+      data_tab                = lt_records
+    EXCEPTIONS
+      file_open_error         = 1
+      file_read_error         = 2
+      no_batch                = 3
+      gui_refuse_filetransfer = 4
+      invalid_type            = 5
+      no_authority            = 6
+      unknown_error           = 7
+      bad_data_format         = 8
+      header_not_allowed      = 9
+      separator_not_allowed   = 10
+      header_too_long         = 11
+      unknown_dp_error        = 12
+      access_denied           = 13
+      dp_out_of_memory        = 14
+      disk_full               = 15
+      dp_timeout              = 16
+      OTHERS                  = 17.
+  IF sy-subrc IS NOT INITIAL.
+    " Display error message if file upload fails
+    MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  " Convert binary data to XSTRING
+  CALL FUNCTION 'SCMS_BINARY_TO_XSTRING'
+    EXPORTING
+      input_length = lv_filelength
+    IMPORTING
+      buffer       = lv_headerxstring
+    TABLES
+      binary_tab   = lt_records
+    EXCEPTIONS
+      failed       = 1
+      OTHERS       = 2.
+
+  IF sy-subrc IS NOT INITIAL.
+    " Display error message if conversion fails
+    MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+            WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  " Ensure that the XSTRING data is valid before creating the Excel object
+  IF lv_headerxstring IS INITIAL.
+    MESSAGE s006(z03_fa24_gr08_msgs) WITH 'Conversion failed' DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  " Initialize the Excel class with the XSTRING data
+  TRY.
+      go_excel_ref = NEW cl_fdt_xl_spreadsheet(
+                         document_name = lv_filename
+                         xdocument     = lv_headerxstring ).
+    CATCH cx_fdt_excel_core INTO DATA(lx_fdt_error).
+      " Display error message if Excel object initialization fails
+      MESSAGE lx_fdt_error->get_text( ) TYPE 'S' DISPLAY LIKE 'E'.
+      LEAVE LIST-PROCESSING.
+  ENDTRY.
+
+  " Get all worksheet names in the Excel file
+  go_excel_ref->if_fdt_doc_spreadsheet~get_worksheet_names(
+                          IMPORTING worksheet_names = lt_worksheets ).
+
+  " Check if there are any worksheets in the file
+  IF lt_worksheets IS INITIAL.
+    MESSAGE s007(z03_fa24_gr08_msgs) DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  CLEAR: gt_errors, gt_so_headers , gt_so_items.
+  " Loop through each worksheet and process based on the name
+  LOOP AT lt_worksheets INTO lv_worksheet_name.
+    CASE lv_worksheet_name.
+      WHEN gv_headers_sheet.
+        " Process header data if the worksheet matches the header sheet name
+        PERFORM process_header_data USING lv_worksheet_name.
+      WHEN gv_items_sheet.
+        " Process item data if the worksheet matches the item sheet name
+        PERFORM process_item_data USING lv_worksheet_name.
+      WHEN OTHERS.
+        CONTINUE.  " Ignore other sheets
+    ENDCASE.
+  ENDLOOP.
+
+  IF gt_so_headers IS INITIAL AND gt_so_items IS INITIAL.
+    MESSAGE s006(z03_fa24_gr08_msgs) WITH 'the Excel File' DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ELSEIF gt_so_headers IS INITIAL.
+    MESSAGE s006(z03_fa24_gr08_msgs) WITH 'Header Data' DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ELSEIF gt_so_items IS INITIAL.
+    MESSAGE s006(z03_fa24_gr08_msgs) WITH 'Item Data' DISPLAY LIKE 'E'.
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+  IF gt_errors IS NOT INITIAL.
+    PERFORM display_errors.
+  ENDIF.
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form process_header_data
+*&---------------------------------------------------------------------*
+*& Processes header data from a specified Excel worksheet and appends
+*& non-empty rows to the internal table gt_so_headers.
+*&---------------------------------------------------------------------*
+FORM process_header_data USING lv_worksheet_name TYPE string.
+
+  " Retrieve data from the specified worksheet into a dynamic internal table
+  go_data_ref = go_excel_ref->if_fdt_doc_spreadsheet~get_itab_from_worksheet(
+                                         lv_worksheet_name ).
+
+  " Assign the dynamic data reference to a field symbol
+  ASSIGN go_data_ref->* TO <gt_data_h>.
+
+  " Khai báo m#ng ki#u CHAR50 ## l#u d# li#u dòng 2
+  DATA: lv_cell_value  TYPE char70.
+
+  CLEAR gt_field_header.
+  READ TABLE <gt_data_h> ASSIGNING FIELD-SYMBOL(<fs_row_h>) INDEX 2.
+  IF sy-subrc = 0.
+    DO.
+      ASSIGN COMPONENT sy-index OF STRUCTURE <fs_row_h> TO <component>.
+      IF sy-subrc <> 0.
+        EXIT.
+      ENDIF.
+      lv_cell_value = <component>.
+      APPEND lv_cell_value TO gt_field_header.
+    ENDDO.
+    lv_cell_value = gt_field_header[ 19 ] && '/' && gt_field_header[ 20 ] .
+    APPEND lv_cell_value TO gt_field_header.
+  ENDIF.
+
+
+  " Start processing from row 3 (assuming header information occupies the first 2 rows)
+  LOOP AT <gt_data_h> ASSIGNING <fs_row_h> FROM 4.
+    DATA: lv_row TYPE i.
+
+    lv_row = sy-tabix.
+    gv_is_empty = abap_true. " Assume the row is empty initially
+
+    " Loop through all components (columns) in the row <fs_row_h>
+    DO.
+      ASSIGN COMPONENT sy-index OF STRUCTURE <fs_row_h> TO <component>.
+      CONDENSE <component>.
+      IF sy-subrc <> 0.
+        " Exit the loop if there are no more components to check
+        EXIT.
+      ENDIF.
+
+      IF <component> IS NOT INITIAL.
+        " If any column has data, mark row as non-empty
+        gv_is_empty = abap_false.
+        EXIT. " Stop further checks since the row has data
+      ENDIF.
+    ENDDO.
+
+    " If the row has data, process it and add it to the internal table
+    IF gv_is_empty = abap_false.
+      CLEAR gs_so_header.
+
+      " Loop to dynamically assign components to the header structure fields
+      DO 20 TIMES.
+        DATA(lv_columnv) = sy-index.
+        " Convert the index to Excel-style column name (e.g., 1 -> A, 27 -> AA)
+        DATA(lv_column_name) = gcl_event_handler=>get_excel_col( i_col = sy-index ).
+
+        " Assign the component dynamically based on the Excel column name
+        ASSIGN COMPONENT lv_column_name OF STRUCTURE <fs_row_h> TO <component>.
+
+        IF sy-subrc = 0.
+          PERFORM normalize_number_format USING <component>
+                            CHANGING <component>.
+          PERFORM insert_data_itab.
+          " Validate field length and numeric requirement before assignment
+          PERFORM validate_header_field USING lv_columnv <component>
+                                        lv_worksheet_name lv_column_name lv_row .
+
+          IF gv_is_error = abap_true.
+
+            CASE sy-index.
+              WHEN 1.
+                gs_so_header-SalesOrder = <component>.
+              WHEN 2.
+                gs_so_header-OrderType = <component>.
+              WHEN 3.
+                gs_so_header-SalesOrg = <component>.
+              WHEN 4.
+                gs_so_header-DistChannel = <component>.
+              WHEN 5.
+                gs_so_header-Division = <component>.
+              WHEN 6.
+                gs_so_header-SalesOffice = <component>.
+              WHEN 7.
+                gs_so_header-SalesGroup = <component>.
+              WHEN 8.
+                gs_so_header-salesdistrict = <component>.
+              WHEN 9.
+                gs_so_header-SoldToParty = <component>.
+              WHEN 10.
+                gs_so_header-shiptoparty = <component>.
+              WHEN 11.
+                gs_so_header-custref = <component>.
+              WHEN 12.
+                gs_so_header-requesteddeldate = <component>.
+*              WHEN 13.
+*                gs_so_header-salesdoccur = <component>.
+              WHEN 13.
+                gs_so_header-paymentterms = <component>.
+              WHEN 14.
+                gs_so_header-shippingcond = <component>.
+              WHEN 15.
+                gs_so_header-pricingdate = <component>.
+              WHEN 16.
+                gs_so_header-deliveryblock = <component>.
+              WHEN 17.
+                gs_so_header-billingblock = <component>.
+              WHEN 18.
+                gs_so_header-orderreason = <component>.
+              WHEN 19.
+                gs_so_header-refsonum = <component>.
+              WHEN 20.
+                gs_so_header-refbilldocnum = <component>.
+            ENDCASE.
+          ENDIF.
+        ENDIF.
+      ENDDO.
+      gv_is_error = abap_true.
+
+      PERFORM Add_padding_before_alv USING gs_so_header
+                                          lv_worksheet_name.
+
+      IF gs_so_header-shiptoparty IS INITIAL.
+        gs_so_header-shiptoparty = gs_so_header-SoldToParty.
+      ENDIF.
+
+*      IF gs_so_header-SoldToParty IS INITIAL.
+*        gs_so_header-SoldToParty = gs_so_header-shiptoparty.
+*      ENDIF.
+
+      IF gs_so_header-SoldToParty IS NOT INITIAL.
+*        SELECT SINGLE waers
+*          INTO gs_so_header-salesdoccur
+*          FROM knvv
+*          WHERE kunnr = gs_so_header-SoldToParty.
+
+        PERFORM get_salesdoc_currency USING gs_so_header-salesorg
+                                            gs_so_header-soldtoparty
+                                            gs_so_header-distchannel
+                                            gs_so_header-division
+                                            CHANGING gs_so_header-salesdoccur.
+      ENDIF.
+
+      IF gs_so_header-refsonum IS NOT INITIAL AND gs_so_header-refbilldocnum IS NOT INITIAL.
+        DATA lv_length TYPE i.
+        DESCRIBE TABLE gt_field_header LINES lv_length.
+        PERFORM log_error USING lv_worksheet_name
+                                 'S/T'
+                                 lv_row
+                                 lv_length
+                                 'Only one ref access'.
+
+      ENDIF.
+
+      IF ( gs_so_header-orderreason IS NOT INITIAL ) OR
+      ( gs_so_header-orderreason IS NOT INITIAL ) OR
+      ( gs_so_header-refsonum IS NOT INITIAL AND gs_so_header-refbilldocnum IS INITIAL ) OR
+       ( gs_so_header-refsonum IS INITIAL AND gs_so_header-refbilldocnum IS NOT INITIAL ).
+        PERFORM validation_for_ref USING  gs_so_header
+                                          lv_worksheet_name
+                                          lv_row.
+
+      ENDIF.
+
+      READ TABLE gt_so_headers WITH KEY SalesOrder = gs_so_header-SalesOrder TRANSPORTING NO FIELDS.
+      IF sy-subrc = 0.
+        DATA(lv_mess) = |Duplicate detected: Sales Order { gs_so_header-SalesOrder } already exists.|.
+
+        PERFORM log_error USING lv_worksheet_name
+                                 'A'
+                                 lv_row
+                                 1
+                                 lv_mess.
+      ENDIF.
+      " Append the populated header row to the internal table
+      APPEND gs_so_header TO gt_so_headers.
+    ENDIF.
+  ENDLOOP.
+
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form process_item_data
+*&---------------------------------------------------------------------*
+*& Processes item data from a specified Excel worksheet and appends
+*& non-empty rows to the internal table gt_so_items.
+*&---------------------------------------------------------------------*
+FORM process_item_data USING lv_worksheet_name TYPE string.
+
+  " Retrieve data from the specified worksheet into a dynamic internal table
+  go_data_ref = go_excel_ref->if_fdt_doc_spreadsheet~get_itab_from_worksheet(
+                                           lv_worksheet_name ).
+
+  " Assign the dynamic data reference to a field symbol
+  ASSIGN go_data_ref->* TO <gt_data_i>.
+  DATA: lv_cell_value  TYPE char70.
+  CLEAR gt_field_item.
+  READ TABLE <gt_data_i> ASSIGNING FIELD-SYMBOL(<fs_row_i>) INDEX 2.
+  IF sy-subrc = 0.
+    DO.
+      ASSIGN COMPONENT sy-index OF STRUCTURE <fs_row_i> TO <component>.
+      IF sy-subrc <> 0.
+        EXIT.
+      ENDIF.
+      lv_cell_value = <component>.
+      APPEND lv_cell_value TO gt_field_item.
+    ENDDO.
+  ENDIF.
+
+  " Start processing from row 3, assuming header information occupies the first 2 rows
+  LOOP AT <gt_data_i> ASSIGNING <fs_row_i> FROM 4.
+    DATA: lv_row TYPE i.
+
+    lv_row = sy-tabix.
+    gv_is_empty = abap_true. " Assume the row is empty initially
+
+    " Loop through all components (columns) in the row <fs_row_i>
+    DO.
+      ASSIGN COMPONENT sy-index OF STRUCTURE <fs_row_i> TO <component>.
+      CONDENSE <component>.
+      IF sy-subrc <> 0.
+        " Exit the loop if there are no more components to check
+        EXIT.
+      ENDIF.
+
+      IF <component> IS NOT INITIAL.
+        " If any column has data, mark the row as non-empty
+        gv_is_empty = abap_false.
+        EXIT. " Stop further checks since the row has data
+      ENDIF.
+    ENDDO.
+
+    " If the row has data, process it and add it to the internal table
+    IF gv_is_empty = abap_false.
+      CLEAR: gs_so_item, gv_cnt.
+
+      " Loop to dynamically assign components to the item structure fields
+      DO 12 TIMES.
+        DATA(iv_columnv) = sy-index.
+        " Convert the index to an Excel-style column name (e.g., 1 -> A, 27 -> AA)
+        DATA(lv_column_name) = gcl_event_handler=>get_excel_col( i_col = sy-index ).
+
+        " Assign the component dynamically based on the Excel column name
+        ASSIGN COMPONENT lv_column_name OF STRUCTURE <fs_row_i> TO <component>.
+        IF sy-subrc = 0.
+
+          PERFORM normalize_number_format USING <component>
+                                      CHANGING <component>.
+          " Validate field length and numeric requirement before assignment
+          PERFORM validate_item_field USING iv_columnv
+                                      <component>
+                                      gv_items_sheet
+                                      lv_column_name
+                                      lv_row.
+
+          IF gv_is_error = abap_true.
+            CASE sy-index.
+              WHEN 1.
+                gs_so_item-SalesOrder = <component>.
+              WHEN 2.
+                gs_so_item-Material = <component>.
+*                SELECT SINGLE meins
+*                   INTO gs_so_item-orderqtyunit
+*                   FROM mara
+*                   WHERE matnr = gs_so_item-Material.
+                PERFORM  get_unit_quantity USING  gs_so_item-Material
+                                           CHANGING gs_so_item-orderqtyunit.
+              WHEN 3.
+                gs_so_item-OrderQty = <component>.
+*              WHEN 4.
+*                gs_so_item-OrderQtyUnit = <component>.
+              WHEN 4.
+                gs_so_item-Item = <component>.
+              WHEN 5.
+                gs_so_item-ScheduleLine = <component>.
+              WHEN 6.
+                gs_so_item-DeliveryDate = <component>.
+              WHEN 7.
+                gs_so_item-Plant = <component>.
+              WHEN 8.
+                gs_so_item-StorageLoc = <component>.
+              WHEN 9.
+                gs_so_item-ItemCat = <component>.
+              WHEN 10.
+                gs_so_item-ConditionType = <component>.
+              WHEN 11.
+
+                PERFORM map_currency USING gs_so_item-SalesOrder
+                                     CHANGING gs_so_item-Currency.
+*                " Lookup SalesDocCur from gt_so_headers using SalesOrder
+*                READ TABLE gt_so_headers INTO DATA(ls_so_header)
+*                  WITH KEY SalesOrder = gs_so_item-SalesOrder.
+*                IF sy-subrc = 0.
+*                  gs_so_item-Currency = ls_so_header-SalesDocCur. " Assign currency to the item
+*                ENDIF.
+
+                DATA net_price      TYPE bapicurx-bapicurx.
+                net_price = <component>.
+                PERFORM convert_currency_to_internal USING gs_so_item-Currency
+                                                            net_price
+                                                     CHANGING gs_so_item-NetPrice.
+
+              WHEN 12.
+                gs_so_item-PriUnit = <component>.
+            ENDCASE.
+          ENDIF.
+        ENDIF.
+
+
+
+      ENDDO.
+      PERFORM check_material_ref USING gs_so_item
+                                            lv_worksheet_name
+                                            lv_row.
+
+      gv_is_error = abap_true.
+      " Append the populated item row to the internal table
+      APPEND gs_so_item TO gt_so_items.
+    ENDIF.
+  ENDLOOP.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form get_selected_headers
+*&---------------------------------------------------------------------*
+*& Retrieves the selected rows from the ALV Header grid and saves them
+*& into the internal table gt_so_headers_selected. If no rows are selected,
+*& all rows are added to the selection.
+*&---------------------------------------------------------------------*
+FORM get_selected_headers.
+
+  DATA: lt_selected_rows TYPE lvc_t_row,  " Table to hold indexes of selected rows
+        lv_index         TYPE i.          " Index variable for selected rows
+
+  " Get the list of indexes for the selected rows in the ALV Header
+  CALL METHOD go_alv_grid_header->get_selected_rows
+    IMPORTING
+      et_index_rows = lt_selected_rows.
+
+  " Clear previous data in the selected headers temporary table
+  CLEAR gt_so_headers_selected.
+
+  " Check if no rows are selected; if so, select all rows
+  IF lt_selected_rows IS INITIAL.
+    " If no rows are selected, copy all rows from gt_so_headers to gt_so_headers_selected
+    gt_so_headers_selected[] = gt_so_headers[].
+  ELSE.
+    " Loop through the list of selected rows and add them to gt_so_headers_selected
+    LOOP AT lt_selected_rows INTO lv_index.
+      " Read the selected row from gt_so_headers by index
+      READ TABLE gt_so_headers INTO gs_so_header INDEX lv_index.
+      IF sy-subrc = 0.
+        " Append the selected header row to gt_so_headers_selected
+        APPEND gs_so_header TO gt_so_headers_selected.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form filter_items_for_slt_headers
+*&---------------------------------------------------------------------*
+*& Filters items that correspond to each selected Sales Order header
+*& and appends them to the internal table gt_so_items_for_slt_h.
+*&---------------------------------------------------------------------*
+FORM filter_items_for_slt_headers.
+
+  DATA: lv_salesorder TYPE vbeln_va.  " Variable to hold Sales Order ID
+
+  " Clear previously filtered item data
+  CLEAR gt_so_items_for_slt_h.
+
+  " Loop through each selected Sales Order header
+  LOOP AT gt_so_headers_selected INTO gs_so_header.
+    lv_salesorder = gs_so_header-salesorder.
+
+    " Filter items that match the Sales Order ID and add them to the filtered items table
+    LOOP AT gt_so_items INTO gs_so_item WHERE salesorder = lv_salesorder.
+      APPEND gs_so_item TO gt_so_items_for_slt_h.
+    ENDLOOP.
+  ENDLOOP.
+
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form create_sales_orders
+*&---------------------------------------------------------------------*
+*& Creates Sales Orders for each selected header. If simulation mode is
+*& enabled, no changes are committed.
+*&---------------------------------------------------------------------*
+FORM create_sales_orders USING pv_simulate TYPE abap_bool
+                          CHANGING plv_error_found TYPE abap_bool.
+
+  DATA: ls_so_header   TYPE ty_so_header,   " Work area for selected Sales Order header
+*        lv_SD_Doc_cat  TYPE vbtyp,          " Document category for Sales Order
+        lv_error_found TYPE abap_bool VALUE abap_true.
+
+  " Check for unsaved changes, retrieve selected headers, and filter items
+  PERFORM check_save_and_sync_changes CHANGING lv_error_found.
+  IF lv_error_found <> abap_true.
+    plv_error_found = lv_error_found.
+    RETURN.
+  ENDIF.
+  PERFORM get_selected_headers.
+  PERFORM filter_items_for_slt_headers.
+
+
+
+  IF gt_so_headers_selected IS INITIAL.
+    MESSAGE s010(z03_fa24_gr08_msgs) DISPLAY LIKE 'E'.
+    LEAVE TO SCREEN 100.
+  ENDIF.
+  DATA lv_all_success TYPE abap_bool VALUE abap_true.
+  LOOP AT gt_so_headers_selected INTO ls_so_header WHERE line_color <> gv_color_success.
+    lv_all_success = abap_false.
+    EXIT.
+  ENDLOOP.
+
+  IF lv_all_success = abap_false.
+    CLEAR gt_messages.
+  ENDIF.
+
+
+  " Loop through each selected header row to create Sales Orders
+  LOOP AT gt_so_headers_selected INTO ls_so_header WHERE line_color <> gv_color_success.
+
+*    " Retrieve SD Document Category based on Order Type
+*    SELECT SINGLE vbtyp
+*      INTO lv_SD_Doc_cat
+*      FROM tvak
+*      WHERE auart = ls_so_header-OrderType.
+
+    " Determine the creation process based on document category and order reason
+    IF
+*      ( lv_SD_Doc_cat = 'K' OR lv_SD_Doc_cat = 'L' ) AND
+      ( ls_so_header-orderreason IS NOT INITIAL
+      OR  ls_so_header-RefSONum IS NOT INITIAL
+      OR ls_so_header-refbilldocnum IS NOT INITIAL ).
+      " Create order with reference to credit/debit
+      PERFORM handle_create_ref_cre_de USING ls_so_header
+*                                             lv_SD_Doc_cat
+                                             pv_simulate.
+    ELSE.
+      " Create standard order with or without reference
+      PERFORM handle_create_SO_ref_return USING ls_so_header
+                                                  pv_simulate.
+    ENDIF.
+
+    " Rollback if in simulation mode or if there was an error; commit otherwise
+    IF pv_simulate = abap_true.
+      CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+    ELSE.
+*      CALL FUNCTION 'BAPI_TRANSACTION_ROLLBACK'.
+*      MESSAGE 'ROLLBACK' TYPE 'S' DISPLAY LIKE 'E'.
+      CALL FUNCTION 'BAPI_TRANSACTION_COMMIT'
+        EXPORTING
+          wait = 'X'.
+    ENDIF.
+
+  ENDLOOP.
+
+  " Show a summary message if not in simulation mode and messages exist
+  IF pv_simulate = abap_false AND lv_all_success = abap_false.
+    PERFORM create_summary_message.
+  ELSEIF lv_all_success = abap_true.
+    MESSAGE s008(z03_fa24_gr08_msgs).
+    " Exit or return to the initial screen as required
+    LEAVE TO SCREEN 0100.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form handle_create_ref_cre_de
+*&---------------------------------------------------------------------*
+*& Handles the creation of Sales Orders with references to Credit/Debit
+*& memos based on the provided Sales Order header data.
+*&---------------------------------------------------------------------*
+FORM handle_create_ref_cre_de USING is_so_header TYPE ty_so_header
+*                                    pv_SD_Doc_cat TYPE vbtyp
+                                    p_simulate TYPE abap_bool.
+
+  DATA:
+    lv_newSO            TYPE vbeln_va,           " Created Sales Order Number
+    ls_header_f_ref     TYPE bapisdhead1,        " Header data for BAPI
+    ls_header_f_refx    TYPE bapisdhead1x,       " Header checkbox data for BAPI
+    lt_items_f_ref      TYPE TABLE OF bapisditem, " Item data table for BAPI
+    ls_item_f_ref       TYPE bapisditem,         " Single item data structure for BAPI
+    lt_items_f_refx     TYPE TABLE OF bapisditemx, " Item checkbox table for BAPI
+    ls_item_f_refx      TYPE bapisditemx,        " Single item checkbox structure for BAPI
+    lt_schedules_f_ref  TYPE TABLE OF bapischedule, " Schedule data table for BAPI
+    ls_schedule_f_ref   TYPE bapischedule,       " Single schedule data structure for BAPI
+    lt_schedules_f_refx TYPE TABLE OF bapischedulex, " Schedule checkbox data for BAPI
+    ls_schedule_f_refx  TYPE bapischedulex,      " Single schedule checkbox structure for BAPI
+    lt_partners_f_ref   TYPE TABLE OF bapipartnr, " Partner data table for BAPI
+    ls_partner_f_ref    TYPE bapipartnr,         " Single partner data structure for BAPI
+    lt_conditions_f_ref TYPE TABLE OF bapicondition, " Conditions table for BAPI
+    ls_condition_f_ref  TYPE bapicondition,      " Single condition structure for BAPI
+    lt_return_f_ref     TYPE TABLE OF bapiret2,  " Return messages from BAPI
+    ls_return_f_ref     TYPE bapiret2,           " Single return message structure
+    "lv_salesdoc_ex      TYPE vbeln_va,           " Generated Sales Document Number
+    lv_refdoc_cat_so    TYPE vbtyp,              " Reference Document Category for Sales Order
+    lv_refdoc_cat_bil   TYPE vbtyp.              " Reference Document Category for Billing Document
+
+  " Initialize variables and clear data structures
+*  CLEAR: lv_newSO, ls_header_f_ref, ls_header_f_refx,
+*         lt_items_f_ref, lt_items_f_refx, lt_schedules_f_ref,
+*         lt_schedules_f_refx, lt_partners_f_ref, lt_conditions_f_ref,
+*         lt_return_f_ref, lv_refdoc_cat_so, lv_refdoc_cat_bil.
+
+  " Set header data
+  ls_header_f_ref-doc_type     = is_so_header-OrderType.
+  ls_header_f_ref-sales_org    = is_so_header-SalesOrg.
+  ls_header_f_ref-distr_chan   = is_so_header-DistChannel.
+  ls_header_f_ref-division     = is_so_header-Division.
+  ls_header_f_ref-sales_off    = is_so_header-salesoffice.
+  ls_header_f_ref-sales_grp    = is_so_header-salesgroup.
+  ls_header_f_ref-purch_no_c   = is_so_header-custref.
+  ls_header_f_ref-req_date_h   = is_so_header-requesteddeldate.
+  ls_header_f_ref-currency     = is_so_header-salesdoccur.
+  ls_header_f_ref-pmnttrms     = is_so_header-paymentterms.
+  ls_header_f_ref-ship_cond    = is_so_header-shippingcond.
+  ls_header_f_ref-price_date   = is_so_header-pricingdate.
+  ls_header_f_ref-dlv_block    = is_so_header-deliveryblock.
+  ls_header_f_ref-bill_block   = is_so_header-billingblock.
+  ls_header_f_ref-sales_dist   = is_so_header-salesdistrict.
+  ls_header_f_ref-ord_reason   = is_so_header-orderreason.
+
+  " Handle Reference Sales Order Number
+  IF is_so_header-RefSONum IS NOT INITIAL.
+    ls_header_f_ref-ref_doc = is_so_header-RefSONum. " Reference Sales Order Number
+
+    " Retrieve document category for Sales Order from VBAK table
+*    SELECT SINGLE vbtyp INTO lv_refdoc_cat_so
+*      FROM vbak
+*      WHERE vbeln = is_so_header-RefSONum.
+*not yet
+    READ TABLE gt_vbak INTO DATA(ls_vbak)
+      WITH KEY vbeln = is_so_header-RefSONum.
+    lv_refdoc_cat_so = ls_vbak-vbtyp.
+    ls_header_f_ref-ref_doc_cat = lv_refdoc_cat_so.
+  ENDIF.
+  " Handle Reference Billing Document Number
+  IF is_so_header-RefBillDocNum IS NOT INITIAL.
+    ls_header_f_ref-ref_doc = is_so_header-RefBillDocNum. " Reference Billing Document Number
+
+    " Retrieve document category for Billing Document from VBRK table
+*    SELECT SINGLE vbtyp INTO lv_refdoc_cat_bil
+*      FROM vbrk
+*      WHERE vbeln = is_so_header-RefBillDocNum.
+* not yet
+    READ TABLE gt_vbrk INTO DATA(ls_vbrk)
+      WITH KEY vbeln = is_so_header-RefSONum.
+    lv_refdoc_cat_bil = ls_vbrk-vbtyp.
+    ls_header_f_ref-ref_doc_cat = lv_refdoc_cat_bil.
+  ENDIF.
+
+  " Set header checkbox data
+  ls_header_f_refx-updateflag  = 'I'.
+  ls_header_f_refx-doc_type    = 'X'.
+  ls_header_f_refx-sales_org   = 'X'.
+  ls_header_f_refx-distr_chan  = 'X'.
+  ls_header_f_refx-division    = 'X'.
+  ls_header_f_refx-sales_off   = 'X'.
+  ls_header_f_refx-sales_grp   = 'X'.
+  ls_header_f_refx-purch_no_c  = 'X'.
+  ls_header_f_refx-req_date_h  = 'X'.
+  ls_header_f_refx-currency    = 'X'.
+  ls_header_f_refx-pmnttrms    = 'X'.
+  ls_header_f_refx-ship_cond   = 'X'.
+  ls_header_f_refx-price_date  = 'X'.
+  ls_header_f_refx-dlv_block   = 'X'.
+  ls_header_f_refx-bill_block  = 'X'.
+  ls_header_f_refx-sales_dist  = 'X'.
+  ls_header_f_refx-ord_reason  = 'X'.
+  ls_header_f_refx-ref_doc     = 'X'.
+  ls_header_f_refx-ref_doc_cat  = 'X'.
+
+  " Set partners (Sold-to and Ship-to)
+  CLEAR ls_partner_f_ref.
+  ls_partner_f_ref-partn_role = 'AG'.         " Sold-to Party
+  ls_partner_f_ref-partn_numb = is_so_header-SoldToParty.
+  APPEND ls_partner_f_ref TO lt_partners_f_ref.
+
+  CLEAR ls_partner_f_ref.
+  ls_partner_f_ref-partn_role = 'WE'.         " Ship-to Party
+  ls_partner_f_ref-partn_numb = is_so_header-ShipToParty.
+  APPEND ls_partner_f_ref TO lt_partners_f_ref.
+
+  " Loop through filtered items and populate item, schedule, and condition data
+  LOOP AT gt_so_items_for_slt_h INTO gs_so_item WHERE salesorder = is_so_header-salesorder.
+    CLEAR: ls_item_f_ref, ls_item_f_refx, ls_schedule_f_ref,
+           ls_schedule_f_refx, ls_condition_f_ref.
+
+    " Set item data
+    ls_item_f_ref-material = gs_so_item-Material.
+    ls_item_f_ref-target_qty = gs_so_item-OrderQty.
+    ls_item_f_ref-target_qu = gs_so_item-orderqtyunit.
+    ls_item_f_ref-itm_number = gs_so_item-Item.
+    ls_item_f_ref-plant = gs_so_item-Plant.
+    ls_item_f_ref-store_loc = gs_so_item-storageloc.
+    ls_item_f_ref-item_categ = gs_so_item-ItemCat.
+    ls_item_f_ref-ref_doc = ls_header_f_ref-ref_doc.
+    ls_item_f_ref-ref_doc_ca = ls_header_f_ref-ref_doc_cat.
+    IF is_so_header-RefSONum IS NOT INITIAL.
+*      SELECT SINGLE posnr
+*    INTO ls_item_f_ref-ref_doc_it
+*    FROM vbap
+*    WHERE vbeln = is_so_header-RefSONum
+*      AND matnr = gs_so_item-Material
+*       AND posnr = gs_so_item-Item.
+
+      READ TABLE gt_vbap INTO DATA(ls_vbap)
+      WITH KEY vbeln = is_so_header-RefSONum
+               matnr = gs_so_item-Material.
+
+      ls_item_f_ref-ref_doc_it = ls_vbap-posnr.
+    ENDIF.
+    IF is_so_header-refbilldocnum IS NOT INITIAL.
+
+
+*      SELECT SINGLE posnr
+*    INTO ls_item_f_ref-ref_doc_it
+*    FROM vbrp
+*    WHERE vbeln = is_so_header-RefBillDocNum
+*      AND matnr = gs_so_item-Material
+*       AND posnr = gs_so_item-Item.
+
+      READ TABLE gt_vbrp INTO DATA(ls_vbrp)
+      WITH KEY vbeln = is_so_header-RefBillDocNum
+               matnr = gs_so_item-Material.
+
+      ls_item_f_ref-ref_doc_it = ls_vbrp-posnr.
+    ENDIF.
+    APPEND ls_item_f_ref TO lt_items_f_ref.
+
+    " Set item checkbox data
+    ls_item_f_refx-updateflag = 'I'.
+    ls_item_f_refx-material = 'X'.
+    ls_item_f_refx-target_qty = 'X'.
+    ls_item_f_refx-target_qu = 'X'.
+    ls_item_f_refx-itm_number = 'X'.
+    ls_item_f_refx-plant = 'X'.
+    ls_item_f_refx-store_loc = 'X'.
+    ls_item_f_refx-item_categ = 'X'.
+    ls_item_f_refx-ref_doc = 'X'.
+    ls_item_f_refx-ref_doc_it = 'X'.
+    ls_item_f_refx-ref_doc_ca = 'X'.
+    APPEND ls_item_f_refx TO lt_items_f_refx.
+
+    " Set schedule data
+    ls_schedule_f_ref-itm_number = gs_so_item-Item.
+    ls_schedule_f_ref-sched_line = gs_so_item-scheduleline.
+    ls_schedule_f_ref-req_date = gs_so_item-deliverydate.
+    ls_schedule_f_ref-req_qty = gs_so_item-orderqty.
+    APPEND ls_schedule_f_ref TO lt_schedules_f_ref.
+
+    " Set schedule checkbox data
+    ls_schedule_f_refx-itm_number = gs_so_item-Item.
+    ls_schedule_f_refx-sched_line = gs_so_item-scheduleline.
+    ls_schedule_f_refx-updateflag = 'I'.
+    ls_schedule_f_refx-req_date = 'X'.
+    ls_schedule_f_refx-req_qty = 'X'.
+    APPEND ls_schedule_f_refx TO lt_schedules_f_refx.
+
+    " Set condition data
+    ls_condition_f_ref-itm_number = gs_so_item-Item.
+    ls_condition_f_ref-cond_type = gs_so_item-conditiontype.
+    PERFORM convert_currency_to_ext_ref USING gs_so_item-currency    "new_change
+                                              gs_so_item-netprice
+                                        CHANGING ls_condition_f_ref-cond_value.
+*    ls_condition_f_ref-cond_value = gs_so_item-netprice.
+    ls_condition_f_ref-cond_p_unt = gs_so_item-priunit.
+    ls_condition_f_ref-currency = gs_so_item-currency.
+    APPEND ls_condition_f_ref TO lt_conditions_f_ref.
+  ENDLOOP.
+
+  " Call BAPI_SALESDOCU_CREATEFROMDATA1
+  CALL FUNCTION 'BAPI_SALESDOCU_CREATEFROMDATA1'
+    EXPORTING
+      sales_header_in     = ls_header_f_ref
+      sales_header_inx    = ls_header_f_refx
+    IMPORTING
+      salesdocument_ex    = lv_newso
+    TABLES
+      return              = lt_return_f_ref
+      sales_items_in      = lt_items_f_ref
+      sales_items_inx     = lt_items_f_refx
+      sales_partners      = lt_partners_f_ref
+      sales_schedules_in  = lt_schedules_f_ref
+      sales_schedules_inx = lt_schedules_f_refx
+      sales_conditions_in = lt_conditions_f_ref.
+
+  " Process return messages
+  LOOP AT lt_return_f_ref INTO ls_return_f_ref.
+    IF ls_return_f_ref-type = 'S' AND sy-tabix = lines( lt_return_f_ref ).
+      PERFORM conversion_output_fields USING lv_newSO.
+      PERFORM fill_message USING ls_return_f_ref-type
+                                   is_so_header-salesorder
+                                   lv_newSO
+                                   ls_return_f_ref-message
+                                   p_simulate.
+
+    ELSEIF ls_return_f_ref-type = 'W' OR ls_return_f_ref-type = 'E' OR ls_return_f_ref-type = 'A'.
+      " Handle warning, error, or abort messages
+      PERFORM conversion_output_fields USING lv_newSO.
+      PERFORM fill_message USING ls_return_f_ref-type
+                                   is_so_header-salesorder
+                                   lv_newSO
+                                   ls_return_f_ref-message
+                                   p_simulate.
+
+    ENDIF.
+
+    IF ls_return_f_ref-type = 'E' OR ls_return_f_ref-type = 'A'.
+      gv_commit = abap_false.
+    ENDIF.
+  ENDLOOP.
+
+ENDFORM.
+
+*FORM handle_create_ref_cre_de USING is_so_header TYPE ty_so_header
+*                                    pv_SD_Doc_cat TYPE vbtyp
+*                                    p_simulate TYPE abap_bool.
+*
+*  DATA:
+*    lv_newSO           TYPE vbeln_va,           " Created Sales Order Number
+*    lv_refdoc_cat_so   TYPE vbtyp,              " SD Document Category for Sales Order
+*    lv_refdoc_cat_bil  TYPE fktyp,              " Document Category for Billing Document
+*    ls_header_f_ref    TYPE bapisdhead,         " Header data for BAPI
+*    lt_items_f_ref     TYPE TABLE OF bapiitemin, " Item data table for BAPI
+*    ls_item_f_ref      TYPE bapiitemin,         " Single item data structure for BAPI
+*    lt_schedules_f_ref TYPE TABLE OF bapisdhedu, " Schedule data table for BAPI
+*    ls_schedule_f_ref  TYPE bapisdhedu,         " Single schedule data structure for BAPI
+*    ls_return_f_ref    TYPE bapireturn1,        " Return structure for BAPI messages
+*    lt_partners_f_ref  TYPE TABLE OF bapipartnr, " Partner data table for BAPI
+*    ls_partner_f_ref   TYPE bapipartnr,         " Single partner data structure for BAPI
+*    lv_busi_obj        TYPE bapiusw01-objtype,  " Business object type
+*    lv_mess            TYPE string,             " Message string for success
+*    lv_order_qty       TYPE bapiitemin-target_qty, " Converted order quantity
+*    lv_net_price       TYPE bapiitemin-cond_value. " Converted net price
+*
+*  " Initialize variables and clear data structures
+*  CLEAR:  lv_newSO,
+*          lv_refdoc_cat_so,
+*          lv_refdoc_cat_bil,
+*          ls_header_f_ref,
+*          lt_items_f_ref,
+*          ls_item_f_ref,
+*          lt_schedules_f_ref,
+*          ls_schedule_f_ref,
+*          ls_return_f_ref,
+*          lt_partners_f_ref,
+*          ls_partner_f_ref,
+*          lv_busi_obj,
+*          lv_order_qty,
+*          lv_net_price,
+*          lv_mess.
+*
+*  " Set header data from the provided Sales Order header structure
+*  ls_header_f_ref-doc_type     = is_so_header-OrderType.
+*  ls_header_f_ref-sales_org    = is_so_header-SalesOrg.
+*  ls_header_f_ref-distr_chan   = is_so_header-DistChannel.
+*  ls_header_f_ref-division     = is_so_header-Division.
+*  ls_header_f_ref-sales_off    = is_so_header-salesoffice.
+*  ls_header_f_ref-sales_grp    = is_so_header-salesgroup.
+*  ls_header_f_ref-purch_no_c   = is_so_header-custref.
+*  ls_header_f_ref-req_date_h   = is_so_header-requesteddeldate.
+*  ls_header_f_ref-currency     = is_so_header-salesdoccur.
+*  ls_header_f_ref-pmnttrms     = is_so_header-paymentterms.
+*  ls_header_f_ref-ship_cond    = is_so_header-shippingcond.
+*  ls_header_f_ref-price_date   = is_so_header-pricingdate.
+*  ls_header_f_ref-dlv_block    = is_so_header-deliveryblock.
+*  ls_header_f_ref-bill_block   = is_so_header-billingblock.
+*  ls_header_f_ref-sales_dist   = is_so_header-salesdistrict.
+*  ls_header_f_ref-ord_reason   = is_so_header-orderreason.
+*
+*  " Handle Reference Sales Order Number
+*  IF is_so_header-RefSONum IS NOT INITIAL.
+*    ls_header_f_ref-ref_doc = is_so_header-RefSONum. " Reference Sales Order Number
+*
+*    " Retrieve document category for Sales Order from VBAK table
+*    SELECT SINGLE vbtyp INTO lv_refdoc_cat_so
+*      FROM vbak
+*      WHERE vbeln = is_so_header-RefSONum.
+*    ls_header_f_ref-ref_doc_ca = lv_refdoc_cat_so.
+*  ENDIF.
+*
+*  " Handle Reference Billing Document Number
+*  IF is_so_header-RefBillDocNum IS NOT INITIAL.
+*    ls_header_f_ref-ref_doc = is_so_header-RefBillDocNum. " Reference Billing Document Number
+*
+*    " Retrieve document category for Billing Document from VBRK table
+*    SELECT SINGLE fktyp INTO lv_refdoc_cat_bil
+*      FROM vbrk
+*      WHERE vbeln = is_so_header-RefBillDocNum.
+*
+*    ls_header_f_ref-ref_doc_ca = lv_refdoc_cat_bil.
+*  ENDIF.
+*
+*  " Set Sold-to Party
+*  CLEAR ls_partner_f_ref.
+*  ls_partner_f_ref-partn_role = 'AG'.        " Role for Sold-to Party
+*  ls_partner_f_ref-partn_numb = is_so_header-SoldToParty.
+*  APPEND ls_partner_f_ref TO lt_partners_f_ref.
+*
+*  " Set Ship-to Party
+*  CLEAR ls_partner_f_ref.
+*  ls_partner_f_ref-partn_role = 'WE'.        " Role for Ship-to Party
+*  ls_partner_f_ref-partn_numb = is_so_header-ShipToParty.
+*  APPEND ls_partner_f_ref TO lt_partners_f_ref.
+*
+*  " Loop through filtered items associated with the current Sales Order
+*  LOOP AT gt_so_items_for_slt_h INTO gs_so_item WHERE salesorder = is_so_header-salesorder.
+*    CLEAR: ls_item_f_ref, ls_schedule_f_ref, lv_order_qty, lv_net_price.
+*
+*    " Add padding for Material and Item (if necessary)
+*    PERFORM add_padding_multiple_fields USING gs_so_item-Item.
+*    PERFORM add_padding_multiple_fields USING gs_so_item-scheduleline.
+*
+*    " Set item data
+*    ls_item_f_ref-material_long = gs_so_item-Material.
+*
+*    " Convert order quantity with decimal adjustments
+*    lv_order_qty = gs_so_item-OrderQty * 1000.
+*    ls_item_f_ref-target_qty = lv_order_qty.
+*
+*    ls_item_f_ref-target_qu = gs_so_item-orderqtyunit.
+*    ls_item_f_ref-itm_number = gs_so_item-Item.
+*    ls_item_f_ref-plant = gs_so_item-Plant.
+*    ls_item_f_ref-store_loc = gs_so_item-storageloc.
+*    ls_item_f_ref-item_categ = gs_so_item-ItemCat.
+*    ls_item_f_ref-cond_type = gs_so_item-conditiontype.
+*
+*    " Convert net price with decimal adjustments
+*    lv_net_price = gs_so_item-netprice * 1000.
+*    ls_item_f_ref-cond_value = lv_net_price.
+*
+*    ls_item_f_ref-cond_p_unt = gs_so_item-priunit.
+*    APPEND ls_item_f_ref TO lt_items_f_ref.
+*
+*    " Set schedule line for each item
+*    ls_schedule_f_ref-itm_number = gs_so_item-Item.
+*    ls_schedule_f_ref-sched_line = gs_so_item-scheduleline.
+*    ls_schedule_f_ref-req_date = gs_so_item-deliverydate.
+*    ls_schedule_f_ref-req_qty = gs_so_item-orderqty.
+*    APPEND ls_schedule_f_ref TO lt_schedules_f_ref.
+*  ENDLOOP.
+*
+*  " Determine business object and message type based on document category
+*  IF pv_SD_Doc_cat = 'K'.
+*    lv_busi_obj = 'BUS2094'.
+*    lv_mess = 'Credit'.
+*  ELSEIF pv_SD_Doc_cat = 'L'.
+*    lv_busi_obj = 'BUS2096'.
+*    lv_mess = 'Debit'.
+*  ENDIF.
+*
+*  " Call BAPI to create Sales Order
+*  CALL FUNCTION 'BAPI_SALESDOCU_CREATEFROMDATA'
+*    EXPORTING
+*      order_header_in   = ls_header_f_ref
+*      business_object   = lv_busi_obj
+*      without_commit    = 'X'
+*    IMPORTING
+*      salesdocument     = lv_newSO
+*      return            = ls_return_f_ref
+*    TABLES
+*      order_items_in    = lt_items_f_ref
+*      order_partners    = lt_partners_f_ref
+*      order_schedule_ex = lt_schedules_f_ref.
+*
+*  " Handle BAPI return messages
+*  IF ls_return_f_ref-type IS INITIAL.
+*    PERFORM conversion_output_fields USING lv_newSO.
+*    ls_return_f_ref-message = |{ lv_mess } Memo Request { lv_newSO } has been saved|.
+*    PERFORM fill_message USING 'S' is_so_header-salesorder lv_newSO ls_return_f_ref-message p_simulate.
+*  ELSEIF ls_return_f_ref-type = 'W' OR ls_return_f_ref-type = 'E' OR ls_return_f_ref-type = 'A'.
+*    PERFORM fill_message USING ls_return_f_ref-type is_so_header-salesorder lv_newSO ls_return_f_ref-message p_simulate.
+*    " If there is an error, prevent commit
+*    IF ls_return_f_ref-type = 'E' OR ls_return_f_ref-type = 'A'.
+*      gv_commit = abap_false.
+*    ENDIF.
+*  ENDIF.
+*
+*ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form handle_create_SO_ref_return
+*&---------------------------------------------------------------------*
+*& Handles the creation of Sales Orders using BAPI_SALESORDER_CREATEFROMDAT2,
+*& with support for items, schedules, and conditions. Reference documents
+*& are optionally handled based on the header data.
+*&---------------------------------------------------------------------*
+FORM handle_create_SO_ref_return USING is_so_header TYPE ty_so_header
+                                         p_simulate TYPE abap_bool.
+
+  DATA: lv_newSO       TYPE vbeln_va,            " Created Sales Order Number
+*        lv_refdoc_cat_so  TYPE vbtyp,               " SD Document Category for Sales Order
+*        lv_refdoc_cat_bil TYPE vbtyp,               " Document Category for Billing Document
+        lt_return      TYPE TABLE OF bapiret2,   " Table for BAPI return messages
+        ls_return      TYPE bapiret2,            " Structure for BAPI return message
+        ls_header      TYPE bapisdhd1,           " Header structure for BAPI
+        ls_headerx     TYPE bapisdhd1x,          " Header control structure for BAPI
+        lt_items       TYPE TABLE OF bapisditm,  " Item table for BAPI
+        ls_item        TYPE bapisditm,           " Item structure for BAPI
+        lt_itemsx      TYPE TABLE OF bapisditmx, " Item control table for BAPI
+        ls_itemx       TYPE bapisditmx,          " Item control structure for BAPI
+        lt_partners    TYPE TABLE OF bapiparnr,  " Partner table for BAPI
+        ls_partner     TYPE bapiparnr,           " Partner structure for BAPI
+        lt_schedules   TYPE TABLE OF bapischdl,  " Schedule table for BAPI
+        ls_schedule    TYPE bapischdl,           " Schedule structure for BAPI
+        lt_schedulesx  TYPE TABLE OF bapischdlx, " Schedule control table for BAPI
+        ls_schedulex   TYPE bapischdlx,          " Schedule control structure for BAPI
+        lt_conditions  TYPE TABLE OF bapicond,   " Condition table for BAPI
+        ls_condition   TYPE bapicond,            " Condition structure for BAPI
+        lt_conditionsx TYPE TABLE OF bapicondx,  " Condition control table for BAPI
+        ls_conditionx  TYPE bapicondx.           " Condition control structure for BAPI
+
+  " Initialize variables and clear all structures and tables
+*  CLEAR: lv_newSO, lv_refdoc_cat_so, lv_refdoc_cat_bil,
+*         lt_return, ls_return, ls_header, ls_headerx,
+*         lt_items, ls_item, lt_itemsx, ls_itemx,
+*         lt_partners, ls_partner, lt_schedules, ls_schedule,
+*         lt_schedulesx, ls_schedulex, lt_conditions, ls_condition,
+*         lt_conditionsx, ls_conditionx.
+
+  " Set header data for BAPI
+  ls_header-doc_type    = is_so_header-OrderType.
+  ls_header-sales_org   = is_so_header-SalesOrg.
+  ls_header-distr_chan  = is_so_header-DistChannel.
+  ls_header-division    = is_so_header-Division.
+  ls_header-sales_off   = is_so_header-salesoffice.
+  ls_header-sales_grp   = is_so_header-salesgroup.
+  ls_header-purch_no_c  = is_so_header-custref.
+  ls_header-req_date_h  = is_so_header-requesteddeldate.
+  ls_header-currency    = is_so_header-salesdoccur.
+  ls_header-pmnttrms    = is_so_header-paymentterms.
+  ls_header-ship_cond   = is_so_header-shippingcond.
+  ls_header-price_date  = is_so_header-pricingdate.
+  ls_header-dlv_block   = is_so_header-deliveryblock.
+  ls_header-bill_block  = is_so_header-billingblock.
+  ls_header-sales_dist  = is_so_header-salesdistrict.
+  ls_header-ord_reason  = is_so_header-orderreason.
+
+
+  " Handle Reference Sales Order Number
+*  IF is_so_header-RefSONum IS NOT INITIAL.
+*    ls_header-ref_doc = is_so_header-RefSONum.  " Reference Sales Order Number
+*    " Retrieve document category for Sales Order from VBAK table
+**    SELECT SINGLE vbtyp INTO lv_refdoc_cat_so
+**      FROM vbak
+**      WHERE vbeln = is_so_header-RefSONum.
+*
+*    READ TABLE gt_vbak INTO DATA(ls_vbak)
+*      WITH KEY vbeln = is_so_header-RefSONum.
+*    lv_refdoc_cat_so = ls_vbak-vbtyp.
+*
+*    ls_header-refdoc_cat = lv_refdoc_cat_so.
+*  ENDIF.
+
+  " Handle Reference Billing Document Number
+*  IF is_so_header-RefBillDocNum IS NOT INITIAL.
+*    ls_header-ref_doc = is_so_header-RefBillDocNum.  " Reference Billing Document Number
+*    " Retrieve document category for Billing Document from VBRK table
+**    SELECT SINGLE vbtyp INTO lv_refdoc_cat_bil
+**      FROM vbrk
+**      WHERE vbeln = is_so_header-RefBillDocNum.
+*
+*    READ TABLE gt_vbrk INTO DATA(ls_vbrk)
+*     WITH KEY vbeln = is_so_header-RefBillDocNum.
+*    lv_refdoc_cat_so = ls_vbrk-vbtyp.
+*
+*
+*    ls_header-refdoc_cat = lv_refdoc_cat_bil.
+*  ENDIF.
+
+  " Set header control data for BAPI
+  ls_headerx-updateflag  = 'I'.
+  ls_headerx-doc_type    = 'X'.
+  ls_headerx-sales_org   = 'X'.
+  ls_headerx-distr_chan  = 'X'.
+  ls_headerx-division    = 'X'.
+  ls_headerx-sales_off   = 'X'.
+  ls_headerx-sales_grp   = 'X'.
+  ls_headerx-purch_no_c  = 'X'.
+  ls_headerx-req_date_h  = 'X'.
+  ls_headerx-currency    = 'X'.
+  ls_headerx-pmnttrms    = 'X'.
+  ls_headerx-ship_cond   = 'X'.
+  ls_headerx-price_date  = 'X'.
+  ls_headerx-dlv_block   = 'X'.
+  ls_headerx-bill_block  = 'X'.
+  ls_headerx-sales_dist  = 'X'.
+  ls_headerx-ord_reason  = 'X'.
+*  ls_headerx-ref_doc     = 'X'.
+*  ls_headerx-refdoc_cat  = 'X'.
+
+  " Set Sold-to Party
+  CLEAR ls_partner.
+  ls_partner-partn_role = 'AG'.     " Role for Sold-to Party
+  ls_partner-partn_numb = is_so_header-SoldToParty.
+  APPEND ls_partner TO lt_partners.
+
+  " Set Ship-to Party
+  CLEAR ls_partner.
+  ls_partner-partn_role = 'WE'.     " Role for Ship-to Party
+  ls_partner-partn_numb = is_so_header-ShipToParty.
+  APPEND ls_partner TO lt_partners.
+
+  " Filter and set items for each selected header
+  LOOP AT gt_so_items_for_slt_h INTO gs_so_item WHERE salesorder = is_so_header-salesorder.
+    CLEAR: ls_item, ls_itemx, ls_schedule, ls_schedulex, ls_condition, ls_conditionx.
+
+    " Set item data
+    ls_item-material_long = gs_so_item-Material.
+    ls_item-target_qty = gs_so_item-OrderQty.
+    ls_item-target_qu = gs_so_item-orderqtyunit.
+
+    ls_item-itm_number = gs_so_item-Item.
+
+
+    ls_item-plant = gs_so_item-Plant.
+    ls_item-store_loc = gs_so_item-storageloc.
+    ls_item-item_categ = gs_so_item-ItemCat.
+    APPEND ls_item TO lt_items.
+
+    " Set item control data
+    ls_itemx-updateflag = 'I'.
+    ls_itemx-material = 'X'.
+    ls_itemx-target_qty = 'X'.
+    ls_itemx-target_qu = 'X'.
+    ls_itemx-itm_number = 'X'.
+    ls_itemx-plant = 'X'.
+    ls_itemx-store_loc = 'X'.
+    ls_itemx-item_categ = 'X'.
+    APPEND ls_itemx TO lt_itemsx.
+
+    " Set schedule data for each item
+    ls_schedule-itm_number = gs_so_item-Item.
+    ls_schedule-sched_line = gs_so_item-scheduleline.
+    ls_schedule-req_date = gs_so_item-deliverydate.
+    ls_schedule-req_qty = gs_so_item-orderqty.
+    APPEND ls_schedule TO lt_schedules.
+
+    " Set schedule control data
+    ls_schedulex-itm_number = gs_so_item-Item.
+    ls_schedulex-sched_line = gs_so_item-scheduleline.
+    ls_schedulex-updateflag = 'I'.
+    ls_schedulex-req_date = 'X'.
+    ls_schedulex-req_qty = 'X'.
+    APPEND ls_schedulex TO lt_schedulesx.
+
+    " Set pricing condition data for each item
+    ls_condition-itm_number = gs_so_item-Item.
+    ls_condition-cond_type = gs_so_item-conditiontype.
+    PERFORM convert_currency_to_ext USING gs_so_item-currency  "new_change
+                                          gs_so_item-netprice
+                                     CHANGING ls_condition-cond_value.
+
+*    ls_condition-cond_value = gs_so_item-netprice.
+    ls_condition-cond_p_unt = gs_so_item-priunit.
+    ls_condition-currency = gs_so_item-currency.
+    APPEND ls_condition TO lt_conditions.
+
+    " Set pricing condition control data
+    ls_conditionx-itm_number = gs_so_item-Item.
+    ls_conditionx-updateflag = 'I'.
+    ls_conditionx-cond_type = 'X'.
+    ls_conditionx-cond_value = 'X'.
+    ls_conditionx-cond_unit = 'X'.
+    ls_conditionx-currency = 'X'.
+    APPEND ls_conditionx TO lt_conditionsx.
+  ENDLOOP.
+
+  " Call BAPI to create Sales Order with the specified header and item data
+  CALL FUNCTION 'BAPI_SALESORDER_CREATEFROMDAT2'
+    EXPORTING
+      order_header_in      = ls_header
+      order_header_inx     = ls_headerx
+    IMPORTING
+      salesdocument        = lv_newSO
+    TABLES
+      return               = lt_return
+      order_items_in       = lt_items
+      order_items_inx      = lt_itemsx
+      order_partners       = lt_partners
+      order_schedules_in   = lt_schedules
+      order_schedules_inx  = lt_schedulesx
+      order_conditions_in  = lt_conditions
+      order_conditions_inx = lt_conditionsx.
+
+  " Check the return table for errors and populate gt_messages accordingly
+  LOOP AT lt_return INTO ls_return.
+    CLEAR gs_message.
+
+    " Handle success message if it is the last row
+    IF ls_return-type = 'S' AND sy-tabix = lines( lt_return ).
+      PERFORM conversion_output_fields USING lv_newSO.
+      PERFORM fill_message USING ls_return-type
+                                   is_so_header-salesorder
+                                   lv_newSO
+                                   ls_return-message
+                                   p_simulate.
+
+    ELSEIF ls_return-type = 'W' OR ls_return-type = 'E' OR ls_return-type = 'A'.
+      " Handle warning, error, or abort messages
+      PERFORM conversion_output_fields USING lv_newSO.
+      PERFORM fill_message USING ls_return-type
+                                   is_so_header-salesorder
+                                   lv_newSO
+                                   ls_return-message
+                                   p_simulate.
+
+
+    ENDIF.
+    " If an error exists, prevent commit
+    IF ls_return-type = 'E' OR ls_return-type = 'A'.
+      gv_commit = abap_false.
+    ENDIF.
+  ENDLOOP.
+
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form fill_message
+*&---------------------------------------------------------------------*
+*& Populates a message record based on the provided status, Sales Order ID,
+*& and message text. Also updates the message log and colors for headers.
+*&---------------------------------------------------------------------*
+FORM fill_message USING p_type      TYPE bapi_mtype   " Message type (e.g., Success, Warning, Error)
+                          p_so_temp  TYPE vbeln_va     " Temporary Sales Order ID (initial ID)
+                          p_so       TYPE vbeln_va     " New Sales Order ID (created ID)
+                          p_message  TYPE bapi_msg     " Message text
+                          p_simulate TYPE abap_bool.   " Simulation mode flag
+
+  DATA: lv_has_error   TYPE abap_bool,  " Flag for error presence
+        lv_has_warning TYPE abap_bool,  " Flag for warning presence
+        lv_has_success TYPE abap_bool.  " Flag for success presence
+
+  CLEAR gs_message.
+
+  " Populate message structure with provided data
+  gs_message-status  = p_type.
+  gs_message-so_temp = p_so_temp.
+
+  " Assign new Sales Order ID only if not in simulation mode
+  IF p_simulate = abap_false AND p_type = 'S'.
+    gs_message-so = p_so.
+  ENDIF.
+
+  gs_message-message = p_message.
+
+  " Set icon and line color based on message type "new_change
+  CASE p_type.
+    WHEN 'S'.
+      gs_message-icon = icon_led_green.
+*      gs_message-line_color = gv_color_success.
+    WHEN 'W'.
+      gs_message-icon = icon_led_yellow.
+*      gs_message-line_color = gv_color_warning.
+    WHEN 'E' OR 'A'.
+      gs_message-icon = icon_led_red.
+*      gs_message-line_color = gv_color_error.
+    WHEN OTHERS.
+      gs_message-icon = icon_led_red.
+*      gs_message-line_color = gv_color_error.
+  ENDCASE.
+
+  DATA: lv_message_exists TYPE abap_bool.
+
+  lv_message_exists = abap_false.
+
+  READ TABLE gt_messages INTO DATA(ls_existing_message)
+      WITH KEY so_temp  = gs_message-so_temp
+               status   = gs_message-status
+               message  = gs_message-message.
+
+  IF sy-subrc = 0.
+    lv_message_exists = abap_true.
+  ENDIF.
+
+  IF lv_message_exists = abap_false.
+    APPEND gs_message TO gt_messages.
+  ENDIF.
+*
+*  " Add the message to the messages table
+*  APPEND gs_message TO gt_messages.
+
+  " Update line color for each header based on message status
+  LOOP AT gt_so_headers INTO gs_so_header WHERE salesorder = p_so_temp.
+
+    " Initialize status flags
+    lv_has_error = abap_false.
+    lv_has_warning = abap_false.
+    lv_has_success = abap_false.
+
+    " Check messages related to the current Sales Order header
+    LOOP AT gt_messages INTO gs_message WHERE so_temp = gs_so_header-salesorder.
+      CASE gs_message-status.
+        WHEN 'E' OR 'A'.
+          lv_has_error = abap_true.
+          EXIT.  " Stop checking further if an error is found
+        WHEN 'W'.
+          lv_has_warning = abap_true.
+        WHEN 'S'.
+          lv_has_success = abap_true.
+      ENDCASE.
+    ENDLOOP.
+
+    " Set line color based on message type and simulation status
+    IF lv_has_error = abap_true.
+      gs_so_header-line_color = gv_color_error.      " Red for error
+    ELSEIF lv_has_warning = abap_true AND p_simulate = abap_true.
+      gs_so_header-line_color = gv_color_clear.    " Yellow for warning
+    ELSEIF lv_has_success = abap_true AND p_simulate = abap_true.
+      gs_so_header-line_color = gv_color_clear.    " Green for success in simulation
+    ELSEIF lv_has_success = abap_true AND p_simulate = abap_false.
+      gs_so_header-line_color = gv_color_success.    " Blue for successfully created
+      gs_so_header-salesordercr = p_so. "new_change
+    ENDIF.
+
+    " Update the header record in the main table
+    MODIFY gt_so_headers FROM gs_so_header.
+  ENDLOOP.
+
+  " Disable the row if not in simulation mode and the status is 'Success'
+  IF p_simulate = abap_false AND p_type = 'S'.
+    LOOP AT gt_so_headers INTO gs_so_header WHERE salesorder = p_so_temp.
+
+      " update SO new
+*      gs_so_header-salesorder = p_so.
+
+      CLEAR gs_so_header-celltab.  " Clear any previous styling
+
+      " Build field catalog for dynamic cell styling
+      PERFORM build_fieldcat USING gt_so_headers gv_headers_sheet.
+
+
+      " Set all fields in the row to a disabled style
+      LOOP AT gt_fieldcat ASSIGNING FIELD-SYMBOL(<fs_fcat>).
+        INSERT VALUE lvc_s_styl( style = go_alv_grid_header->mc_style_disabled fieldname = <fs_fcat>-fieldname ) INTO TABLE gs_so_header-celltab.
+      ENDLOOP.
+
+      " Update the header record with the disabled styling
+      MODIFY gt_so_headers FROM gs_so_header.
+    ENDLOOP.
+  ENDIF.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form clear_screen
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+FORM clear_screen.
+
+  " Clear the screen before displaying data
+  LEAVE TO LIST-PROCESSING.
+  " Set the list display with a new page
+  NEW-PAGE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form handle_exit_command
+*&---------------------------------------------------------------------*
+*& Handles user commands for exiting or navigating back within the program.
+*&---------------------------------------------------------------------*
+FORM handle_exit_command USING ucomm TYPE sy-ucomm.
+
+  CASE ucomm.
+    WHEN 'BACK'.
+      " Navigate back to the previous screen
+      LEAVE TO SCREEN 0.
+    WHEN 'EXIT' OR 'CANC'.
+      " Exit the program
+      LEAVE PROGRAM.
+  ENDCASE.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form setup_containers_and_alv_0100
+*&---------------------------------------------------------------------*
+*& Initializes containers and ALV grids for displaying header and item data.
+*&---------------------------------------------------------------------*
+FORM setup_containers_and_alv_0100.
+  DATA: lo_event_handler TYPE REF TO gcl_event_handler.
+
+  " Create container for header ALV if it doesn't already exist
+  IF go_custom_container_header IS INITIAL.
+    CREATE OBJECT go_custom_container_header
+      EXPORTING
+        container_name = 'CC_HEADERS'.  " Custom Control in Screen 100
+  ENDIF.
+
+  " Create container for item ALV if it doesn't already exist
+  IF go_custom_container_item IS INITIAL.
+    CREATE OBJECT go_custom_container_item
+      EXPORTING
+        container_name = 'CC_ITEMS'.  " Custom Control in Screen 100
+  ENDIF.
+
+  " Create ALV grid for header data
+  IF go_alv_grid_header IS INITIAL.
+    CREATE OBJECT go_alv_grid_header
+      EXPORTING
+        i_parent = go_custom_container_header.
+
+
+    " Instantiate the event handler and assign it to handle double-click events
+    IF lo_event_handler IS INITIAL.
+      CREATE OBJECT lo_event_handler.
+      SET HANDLER lo_event_handler->on_double_click FOR go_alv_grid_header.
+*      SET HANDLER lo_event_handler->handle_data_changed FOR go_alv_grid_header.
+*      SET HANDLER lo_event_handler->handle_changed_finished FOR go_alv_grid_header.
+
+    ENDIF.
+  ENDIF.
+
+  " Display the header ALV grid with header data
+  PERFORM display_alv USING gt_so_headers go_alv_grid_header gv_headers_sheet.
+
+  " Retrieve the Sales Order ID of the first header row and display filtered items
+  READ TABLE gt_so_headers INTO gs_so_header INDEX 1.
+  IF sy-subrc = 0.
+    " Filter items based on the Sales Order ID of the first header row
+    PERFORM filter_items USING gs_so_header-salesorder gs_so_header-line_color.
+  ENDIF.
+
+  " Create ALV grid for item data if it doesn't already exist
+  IF go_alv_grid_item IS INITIAL.
+    CREATE OBJECT go_alv_grid_item
+      EXPORTING
+        i_parent = go_custom_container_item.
+
+  ENDIF.
+
+  " Display the ALV grid
+  PERFORM display_alv USING gt_so_items_filtered go_alv_grid_item gv_items_sheet.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form dislay_mess_in_alv_0200
+*&---------------------------------------------------------------------*
+*& Sets up the ALV grid to display messages within a custom container.
+*&---------------------------------------------------------------------*
+FORM dislay_mess_in_alv_0200.
+
+  " Create a new Custom Container for the message log table if it doesn't exist
+  IF go_custom_container_messages IS INITIAL.
+    CREATE OBJECT go_custom_container_messages
+      EXPORTING
+        container_name = 'CC_LOG_MESS'.  " Custom Control defined on Screen 200
+  ENDIF.
+
+  " Create an ALV Grid within the Custom Container for messages
+  IF go_alv_grid_messages IS INITIAL.
+    CREATE OBJECT go_alv_grid_messages
+      EXPORTING
+        i_parent = go_custom_container_messages.
+  ENDIF.
+
+  " Clear and build the field catalog for the message log ALV
+  CLEAR gt_fieldcat.
+  PERFORM build_fieldcat_log_mess CHANGING gt_fieldcat.
+
+  " Set up the ALV grid to display messages with the specified structure and layout
+  CALL METHOD go_alv_grid_messages->set_table_for_first_display
+    EXPORTING
+      i_structure_name = 'TY_MESSAGE'      " Structure defining message fields
+      is_layout        = gs_layout         " Layout settings for ALV grid
+    CHANGING
+      it_outtab        = gt_messages       " Message data table
+      it_fieldcatalog  = gt_fieldcat.      " Field catalog for messages
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form build_fieldcat_log_mess
+*&---------------------------------------------------------------------*
+*& Builds the field catalog for the message log ALV grid.
+*&---------------------------------------------------------------------*
+FORM build_fieldcat_log_mess CHANGING pt_fieldcat TYPE lvc_t_fcat.
+
+  DATA: ls_fieldcat TYPE lvc_s_fcat.
+  CLEAR: gv_cnt, ls_fieldcat, gs_layout.
+
+  " Specify the field for line color control in the ALV layout
+  gs_layout-info_fname = 'LINE_COLOR'.
+
+  " Define field catalog entry for the Status icon
+  gv_cnt += 1.
+  ls_fieldcat-fieldname = 'ICON'.
+  ls_fieldcat-icon = 'X'.                  " Enable icon display
+  ls_fieldcat-reptext = 'Status'.           " Column header text
+  ls_fieldcat-col_pos = gv_cnt.             " Column position
+  ls_fieldcat-tabname = 'gt_message'.       " Table name
+  ls_fieldcat-col_opt = 'X'.                " Optimize column width
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Define field catalog entry for Temporary Sales Order ID
+  CLEAR ls_fieldcat.
+  gv_cnt += 1.
+  ls_fieldcat-fieldname = 'SO_TEMP'.
+  ls_fieldcat-reptext = 'Temporary SO'.     " Column header text
+  ls_fieldcat-col_pos = gv_cnt.
+  ls_fieldcat-tabname = 'gt_message'.
+  ls_fieldcat-col_opt = 'X'.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Define field catalog entry for Sales Order ID
+  CLEAR ls_fieldcat.
+  gv_cnt += 1.
+  ls_fieldcat-fieldname = 'SO'.
+  ls_fieldcat-reptext = 'Sales Order'.      " Column header text
+  ls_fieldcat-col_pos = gv_cnt.
+  ls_fieldcat-tabname = 'gt_message'.
+  ls_fieldcat-col_opt = 'X'.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+  " Define field catalog entry for Message text
+  CLEAR ls_fieldcat.
+  gv_cnt += 1.
+  ls_fieldcat-fieldname = 'MESSAGE'.
+  ls_fieldcat-reptext = 'Message'.          " Column header text
+  ls_fieldcat-col_pos = gv_cnt.
+  ls_fieldcat-tabname = 'gt_message'.
+  ls_fieldcat-col_opt = 'X'.
+  APPEND ls_fieldcat TO pt_fieldcat.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form handle_user_command_0100
+*&---------------------------------------------------------------------*
+*& Handles user commands for screen 100, such as simulating or saving sales orders.
+*&---------------------------------------------------------------------*
+FORM handle_user_command_0100.
+  DATA: lv_error_found TYPE abap_bool VALUE abap_true,
+        lv_syucomm     TYPE abap_bool VALUE abap_false.
+
+  IF sy-ucomm IS NOT INITIAL.
+    lv_syucomm = abap_true.
+  ENDIF.
+
+  CASE sy-ucomm.
+    WHEN 'SIM'.  " When the Simulate button is pressed on the status bar
+      PERFORM create_sales_orders USING abap_true CHANGING lv_error_found.  " Run in simulation mode
+    WHEN 'SAVE'.  " When the Save button is pressed on the status bar
+      PERFORM create_sales_order_checked CHANGING lv_error_found.  " Create sales orders with checks
+    WHEN 'LOGM'.
+      CALL SCREEN 200.
+
+  ENDCASE.
+
+  IF lv_error_found = abap_true AND lv_syucomm = abap_true.
+    CALL SCREEN 200.  " Navigate to Screen 200 to display results
+  ENDIF.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form create_sales_order_checked
+*&---------------------------------------------------------------------*
+*& Checks for errors by simulating the creation of Sales Orders, and if
+*& no errors are found, proceeds with actual creation.
+*&---------------------------------------------------------------------*
+FORM create_sales_order_checked CHANGING pv_error_found TYPE abap_bool.
+
+  gv_commit = abap_true.  " Initialize commit flag to true
+
+  " Run simulation to check for potential errors
+  PERFORM create_sales_orders USING abap_true CHANGING pv_error_found.
+
+  " Check the commit flag after simulation
+  IF gv_commit = abap_true.
+    " No errors in simulation; proceed with actual Sales Order creation
+    PERFORM create_sales_orders USING abap_false CHANGING pv_error_found.
+  ELSE.
+    " Errors were found during simulation; display error message
+    MESSAGE s009(z03_fa24_gr08_msgs) DISPLAY LIKE 'E'.
+    " Stop processing or exit as required
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form create_summary_message
+*&---------------------------------------------------------------------*
+*& Creates a summary message listing all successfully created Sales Orders
+*& and appends it to the message log.
+*&---------------------------------------------------------------------*
+FORM create_summary_message.
+
+*  DATA: lv_successful_so_list TYPE string.  " List of successful Sales Orders
+  CLEAR gv_cnt.                            " Counter for successful SOs
+
+  " Filter and concatenate successful Sales Orders from gt_messages
+  LOOP AT gt_messages INTO gs_message WHERE status = 'S'.
+
+*    IF lv_successful_so_list IS INITIAL.
+*      lv_successful_so_list = gs_message-so.
+*    ELSE.
+*      CONCATENATE lv_successful_so_list gs_message-so INTO lv_successful_so_list SEPARATED BY ', '.
+*    ENDIF.
+
+    gv_cnt += 1.  " Count each successful Sales Order
+  ENDLOOP.
+
+  " Prepare a summary message entry
+  DATA: gs_summary TYPE ty_message.
+*  CLEAR gs_summary.
+  gs_summary-so_temp = 'SUMMARY'.  " Label for summary row
+  gs_summary-message = |Total: { gv_cnt } SOs.|. "  Successfully created SOs: { lv_successful_so_list }|.
+  gs_summary-icon = icon_led_green.
+*  gs_summary-line_color = 'C0'.  " Distinct color for summary row
+
+  " Append the summary message to the message log
+  APPEND gs_summary TO gt_messages.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form download
+*&---------------------------------------------------------------------*
+*& Reads a binary file from a specified location, allows the user to
+*& select a destination path, downloads the file, and opens it in Excel.
+*&---------------------------------------------------------------------*
+FORM download.
+
+  DATA:
+    lv_path_file TYPE string,                 " Variable for user-selected path
+    lv_file_name TYPE string VALUE '/tmp/finalaftervietnamewon.xlsx', " Default file path for reading
+    lv_path      TYPE string,                 " Holds directory path from file dialog
+    lv_fullpath  TYPE string,                 " Full path of the saved file
+    lv_fname     TYPE string VALUE 'Template Excel files.xlsx',  " Default file name
+    wa           TYPE spfli,                  " Work area for binary data reading
+    itab         LIKE TABLE OF wa.            " Internal table to store binary data
+
+  FIELD-SYMBOLS <hex_container> TYPE x.       " Hexadecimal container for binary reading
+
+  TRY.
+      " Open the file in binary mode and read data into an internal table
+      OPEN DATASET lv_file_name FOR INPUT IN BINARY MODE.
+      ASSIGN wa TO <hex_container> CASTING.
+
+      DO.
+        READ DATASET lv_file_name INTO <hex_container>.
+        IF sy-subrc = 0.
+          APPEND wa TO itab.
+        ELSE.
+          EXIT.
+        ENDIF.
+      ENDDO.
+
+      CLOSE DATASET lv_file_name.
+
+    CATCH cx_root INTO DATA(e_txt).
+      " Handle any exceptions with an error message
+      MESSAGE e001(z03_fa24_gr08_msgs) WITH e_txt->get_text( ).
+      RETURN.
+  ENDTRY.
+
+  " Open file save dialog for user to select the save location and name
+  CALL METHOD cl_gui_frontend_services=>file_save_dialog
+    EXPORTING
+      window_title      = 'Select File Directory'
+      default_extension = 'XLSX'
+      default_file_name = lv_fname
+    CHANGING
+      filename          = lv_fname
+      path              = lv_path_file
+      fullpath          = lv_fullpath.
+
+  " Check if user provided a save path (did not cancel the dialog)
+  IF lv_path_file IS NOT INITIAL.
+
+    " Download the file using GUI_DOWNLOAD in binary mode
+    CALL FUNCTION 'GUI_DOWNLOAD'
+      EXPORTING
+        filename                = lv_fullpath
+        filetype                = 'BIN'
+      TABLES
+        data_tab                = itab
+      EXCEPTIONS
+        file_write_error        = 1
+        no_batch                = 2
+        gui_refuse_filetransfer = 3
+        invalid_type            = 4
+        no_authority            = 5
+        unknown_error           = 6
+        header_not_allowed      = 7
+        separator_not_allowed   = 8
+        filesize_not_allowed    = 9
+        header_too_long         = 10
+        dp_error_create         = 11
+        dp_error_send           = 12
+        dp_error_write          = 13
+        unknown_dp_error        = 14
+        access_denied           = 15
+        dp_out_of_memory        = 16
+        disk_full               = 17
+        dp_timeout              = 18
+        file_not_found          = 19
+        dataprovider_exception  = 20
+        control_flush_error     = 21
+        OTHERS                  = 22.
+
+    " Check if the download was successful
+    IF sy-subrc <> 0.
+      MESSAGE e002(z03_fa24_gr08_msgs).
+    ELSE.
+      " Open the downloaded file in Excel after successful download
+      CALL METHOD cl_gui_frontend_services=>execute
+        EXPORTING
+          document               = lv_fullpath
+          operation              = 'OPEN'
+        EXCEPTIONS
+          cntl_error             = 1
+          error_no_gui           = 2
+          bad_parameter          = 3
+          file_not_found         = 4
+          path_not_found         = 5
+          file_extension_unknown = 6
+          error_execute_failed   = 7
+          OTHERS                 = 8.
+
+      " Display a success message if the file opens successfully
+      IF sy-subrc = 0.
+        MESSAGE s003(z03_fa24_gr08_msgs).
+      ENDIF.
+    ENDIF.
+
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form validate_and_convert_date
+*&---------------------------------------------------------------------*
+*& Validates and converts a date from 'YYYY-MM-DD' or 'YYYYMMDD' format.
+*& Converts 'YYYY-MM-DD' to 'YYYYMMDD'. Logs an error if the format is incorrect.
+*&---------------------------------------------------------------------*
+FORM validate_and_convert_date USING  iv_date        TYPE string
+                                      iv_sheet_name TYPE string
+                                      iv_column     TYPE string
+                                      iv_row        TYPE i
+                                      iv_columnv    TYPE i.
+
+  " Only proceed if the date input is not empty
+  IF iv_date IS NOT INITIAL.
+
+    DATA: lv_year           TYPE string,       " Holds year portion for YYYY-MM-DD
+          lv_month          TYPE string,       " Holds month portion for YYYY-MM-DD
+          lv_day            TYPE string,       " Holds day portion for YYYY-MM-DD
+          lv_date           TYPE d,            " Final formatted date in YYYYMMDD format
+          lv_formatted_date TYPE d.            " Holds formatted date to check plausibility.
+
+    " Validate and format the date based on input format
+    IF iv_date CO '0123456789' AND strlen( iv_date ) = 8.
+      " Date is already in YYYYMMDD format
+      lv_year  = iv_date+0(4).
+      lv_month = iv_date+4(2).
+      lv_day   = iv_date+6(2).
+      lv_formatted_date = iv_date. " Assign directly to plausibility check variable
+
+    ELSEIF strlen( iv_date ) = 10 AND iv_date+4(1) = '-' AND iv_date+7(1) = '-'.
+      " Date is in YYYY-MM-DD format; extract components
+      lv_year  = iv_date+0(4).
+      lv_month = iv_date+5(2).
+      lv_day   = iv_date+8(2).
+      CONCATENATE lv_year lv_month lv_day INTO lv_formatted_date.
+
+    ELSE.
+      " Log an error for incorrect format
+      PERFORM log_error USING iv_sheet_name iv_column iv_row iv_columnv 'Invalid format - Expected YYYYMMDD or YYYY-MM-DD'.
+      RETURN.
+    ENDIF.
+
+    " Use DATE_CHECK_PLAUSIBILITY to validate the date
+    CALL FUNCTION 'DATE_CHECK_PLAUSIBILITY'
+      EXPORTING
+        date                      = lv_formatted_date
+      EXCEPTIONS
+        plausibility_check_failed = 1
+        OTHERS                    = 2.
+
+    " Handle errors from DATE_CHECK_PLAUSIBILITY
+    IF sy-subrc = 1.
+      " Log error if the date is invalid
+      PERFORM log_error USING iv_sheet_name iv_column iv_row iv_columnv 'Invalid format - Expected YYYYMMDD or YYYY-MM-DD'.
+      RETURN.
+    ELSEIF sy-subrc <> 0.
+      " Handle other unexpected errors
+      PERFORM log_error USING iv_sheet_name iv_column iv_row iv_columnv 'Unexpected error during date validation'.
+      RETURN.
+    ENDIF.
+
+  ENDIF.
+
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form log_error
+*&---------------------------------------------------------------------*
+*& Logs an error message with details about the worksheet, cell location,
+*& and error message text.
+*&---------------------------------------------------------------------*
+FORM log_error USING    iv_sheet_name    TYPE string
+                        iv_column     TYPE string
+                        iv_row        TYPE i
+                        iv_columnv    TYPE i
+                        iv_message    TYPE string.
+
+  DATA: ls_error TYPE ty_error. " Temporary structure to store the error details
+
+  " Assign input values to the error structure fields
+  ls_error-sheet_name = iv_sheet_name.
+  ls_error-cell       = iv_column && iv_row." Concatenate column and row as a cell reference
+  IF iv_sheet_name = gv_headers_sheet .
+    ls_error-field_name = gt_field_header[ iv_columnv ].
+  ELSEIF iv_sheet_name = gv_items_sheet .
+    ls_error-field_name = gt_field_item[ iv_columnv ].
+  ENDIF .
+
+  ls_error-message    = iv_message.            " Error message text
+
+  " Append the error record to the errors table
+  APPEND ls_error TO gt_errors.
+
+ENDFORM.
+
+**&---------------------------------------------------------------------*
+**& Form display_errors
+**&---------------------------------------------------------------------*
+**& Displays a popup with a formatted list of errors from the gt_errors table.
+**& Includes a header row and separator for readability.
+**&---------------------------------------------------------------------*
+*FORM display_errors.
+*
+*  " Check if there are errors in gt_errors to display
+*  IF gt_errors IS NOT INITIAL.
+*
+*    DATA: lv_title            TYPE Char80 VALUE 'Date Validation Errors',  " Title for the popup
+*          ls_header           TYPE ty_error,       " Header row for column titles
+*          ls_separator        TYPE ty_error,       " Separator row for table formatting
+*          lv_underscore_sheet TYPE string,         " Underscore string for sheet_name column
+*          lv_underscore_cell  TYPE string,         " Underscore string for cell column
+*          lv_underscore_msg   TYPE string,         " Underscore string for message column
+*          lv_underscore_field TYPE string.         " Underscore string for field_name
+*
+*    " Assign column titles to the header row
+*    CLEAR ls_header.
+*    ls_header-sheet_name = 'Sheet Name'.
+*    ls_header-cell       = '|Cell'.
+*    ls_header-field_name = '|Field Name'.
+*    ls_header-message    = '|Error Message'.
+*
+*    " Insert the header row at the top of gt_errors
+*    INSERT ls_header INTO gt_errors INDEX 1.
+*
+*    " Create dynamic underscores for the separator based on field lengths
+*    lv_underscore_sheet = sy-uline(20).    " 20 underscores for sheet_name field
+*    lv_underscore_cell  = sy-uline(9).     " 9 underscores for cell field
+*    lv_underscore_field = sy-uline(50).    " 50 underscores for field_name field
+*    lv_underscore_msg   = sy-uline(200).   " 255 underscores for message field
+*
+*    " Assign the underscores to the separator row for visual separation
+*    CLEAR ls_separator.
+*    ls_separator-sheet_name = lv_underscore_sheet.
+*    ls_separator-cell       = '|' && lv_underscore_cell.
+*    ls_separator-field_name = '|' && lv_underscore_field.
+*    ls_separator-message    = '|' && lv_underscore_msg.
+*
+*    " Insert the separator row after the header
+*    INSERT ls_separator INTO gt_errors INDEX 2.
+*
+*    CALL FUNCTION 'POPUP_WITH_TABLE_DISPLAY'
+*      EXPORTING
+*        endpos_col   = 120
+*        endpos_row   = 20
+*        startpos_col = 5
+*        startpos_row = 2
+*        titletext    = lv_title
+*      TABLES
+*        valuetab     = gt_errors
+*      EXCEPTIONS
+*        break_off    = 1
+*        OTHERS       = 2.
+*
+*    " Handle errors in displaying the popup
+*    IF sy-subrc <> 0.
+**      MESSAGE s010(z03_fa24_gr08_msgs) DISPLAY LIKE 'E'.
+**      LEAVE LIST-PROCESSING.
+*    ENDIF.
+*
+*    " Exit list processing after popup display
+*    LEAVE LIST-PROCESSING.
+*  ENDIF.
+*
+*ENDFORM.
+
+**&---------------------------------------------------------------------*
+**& Form display_errors new_change
+**&---------------------------------------------------------------------*
+**& Displays a popup with a formatted list of errors from the gt_errors table.
+**& Includes a header row and separator for readability.
+**&---------------------------------------------------------------------*
+FORM display_errors.
+
+  " Check if there are errors in gt_errors to display
+  IF gt_errors IS NOT INITIAL.
+
+    DATA: lt_fieldcat TYPE slis_t_fieldcat_alv, " Field catalog table
+          ls_fieldcat TYPE slis_fieldcat_alv,  " Field catalog structure
+          lv_title    TYPE char80 VALUE 'Validation Errors Report'. " Popup title
+
+    " Build the field catalog for ALV
+    CLEAR ls_fieldcat.
+    ls_fieldcat-fieldname = 'SHEET_NAME'.  " Field name in the data structure
+    ls_fieldcat-seltext_m = 'Sheet Name'.  " Column title
+    ls_fieldcat-outputlen = 15.            " Display length for the column
+    APPEND ls_fieldcat TO lt_fieldcat.
+
+    CLEAR ls_fieldcat.
+    ls_fieldcat-fieldname = 'CELL'.       " Field name in the data structure
+    ls_fieldcat-seltext_m = 'Cell'.       " Column title
+    ls_fieldcat-outputlen = 15.           " Display length for the column
+    APPEND ls_fieldcat TO lt_fieldcat.
+
+    CLEAR ls_fieldcat.
+    ls_fieldcat-fieldname = 'FIELD_NAME'. " Field name in the data structure
+    ls_fieldcat-seltext_m = 'Field Name'. " Column title
+    ls_fieldcat-outputlen = 40.           " Display length for the column
+    APPEND ls_fieldcat TO lt_fieldcat.
+
+    CLEAR ls_fieldcat.
+    ls_fieldcat-fieldname = 'MESSAGE'.    " Field name in the data structure
+    ls_fieldcat-seltext_m = 'Error Message'. " Column title
+    ls_fieldcat-outputlen = 52.          " Display length for the column
+    APPEND ls_fieldcat TO lt_fieldcat.
+
+    " Call the ALV popup function
+    CALL FUNCTION 'REUSE_ALV_POPUP_TO_SELECT'
+      EXPORTING
+        i_title               = lv_title         " Popup title
+        i_tabname             = 'GT_ERRORS'      " Name of the internal table
+        i_selection           = 'X'              " Enable row selection
+        it_fieldcat           = lt_fieldcat      " Field catalog
+        i_screen_start_column = 5               " Starting column for the popup
+        i_screen_start_line   = 2                " Starting row for the popup
+        i_screen_end_column   = 130              " Ending column for the popup
+        i_screen_end_line     = 20               " Ending row for the popup
+      TABLES
+        t_outtab              = gt_errors        " Data table to display
+      EXCEPTIONS
+        program_error         = 1
+        OTHERS                = 2.
+
+    " Handle exceptions
+    IF sy-subrc <> 0.
+      MESSAGE s010(z03_fa24_gr08_msgs) DISPLAY LIKE 'E'.
+      LEAVE LIST-PROCESSING.
+    ENDIF.
+
+    LEAVE LIST-PROCESSING.
+  ENDIF.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form validate_header_field
+*&---------------------------------------------------------------------*
+*& Validates header fields based on index. Checks for length, mandatory
+*& fields, numeric values, and date format where applicable.
+*&---------------------------------------------------------------------*
+FORM validate_header_field USING  iv_index       TYPE i
+                                  iv_component   TYPE any
+                                  iv_sheet_name  TYPE string
+                                  iv_column_name TYPE string
+                                  iv_row         TYPE i.
+
+
+  DATA: lv_length     TYPE i,         " Length of the current component
+        lv_max_length TYPE i,         " Maximum allowable length for the field
+        lv_message    TYPE string.    " Message for error logging
+
+  " Determine the maximum length for each field based on index
+  CASE iv_index.
+    WHEN 1.
+      lv_max_length = 10.  " Sales Order (10 characters)
+    WHEN 2.
+      lv_max_length = 4.   " Sales Document Type (4 characters)
+    WHEN 3.
+      lv_max_length = 4.   " Sales Organization (4 characters)
+    WHEN 4.
+      lv_max_length = 2.   " Distribution Channel (2 characters)
+    WHEN 5.
+      lv_max_length = 2.   " Division (2 characters)
+    WHEN 6.
+      lv_max_length = 4.   " Sales Office (4 characters)
+    WHEN 7.
+      lv_max_length = 3.   " Sales Group (3 characters)
+    WHEN 8.
+      lv_max_length = 6.   " Sales District (6 characters)
+    WHEN 9.
+      lv_max_length = 10.  " Sold-to Party (10 characters)
+    WHEN 10.
+      lv_max_length = 10.  " Ship-to Party (10 characters)
+    WHEN 11.
+      lv_max_length = 35.  " Customer Reference (35 characters)
+    WHEN 12.
+      lv_max_length = 8.   " Requested Delivery Date (8 characters)
+*    WHEN 13.
+*      lv_max_length = 5.   " Sales Document Currency (5 characters)
+    WHEN 13.
+      lv_max_length = 4.   " Payment Terms (4 characters)
+    WHEN 14.
+      lv_max_length = 2.   " Shipping Conditions (2 characters)
+    WHEN 15.
+      lv_max_length = 8.   " Pricing Date (8 characters)
+    WHEN 16.
+      lv_max_length = 2.   " Delivery Block (2 characters)
+    WHEN 17.
+      lv_max_length = 2.   " Billing Block (2 characters)
+    WHEN 18.
+      lv_max_length = 3.   " Order Reason (3 characters)
+    WHEN 19.
+      lv_max_length = 10.  " Reference Billing Document Number (10 characters)
+    WHEN 20.
+      lv_max_length = 10.  " Reference Sales Order Document Number (10 characters)
+  ENDCASE.
+
+  " Check if the component exceeds the maximum length
+  lv_length = strlen( iv_component ).
+  IF lv_length > lv_max_length.
+    lv_message = |Component length { lv_length } exceeds maximum length { lv_max_length }|.
+    PERFORM log_error USING iv_sheet_name iv_column_name iv_row iv_index lv_message.
+  ENDIF.
+
+  " Check if the field is required (mandatory fields)
+  IF iv_index = 1 OR iv_index = 2 OR iv_index = 3 OR iv_index = 4 OR
+     iv_index = 5 OR iv_index = 9 OR iv_index = 11 .
+    PERFORM check_not_initial USING iv_component iv_sheet_name iv_column_name iv_row iv_index.
+  ENDIF.
+
+  " Numeric validation for specified fields
+  IF iv_index = 1 OR iv_index = 7 OR iv_index = 9 OR iv_index = 10 OR
+     iv_index = 13 OR iv_index = 17 OR iv_index = 19. " OR iv_index = 21.
+    PERFORM check_is_numeric USING iv_component iv_sheet_name iv_column_name iv_row iv_index.
+  ENDIF.
+
+  " Date validation for specified fields
+  IF iv_index = 12 OR iv_index = 15.
+    PERFORM validate_and_convert_date USING iv_component iv_sheet_name iv_column_name iv_row iv_index.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form validate_item_field
+*&---------------------------------------------------------------------*
+*& Validates item fields based on index, including length, mandatory
+*& fields, numeric values, and date format. Logs errors if validation fails.
+*&---------------------------------------------------------------------*
+FORM validate_item_field USING iv_index       TYPE i
+                               iv_component   TYPE any
+                               iv_sheet_name  TYPE string
+                               iv_column_name TYPE string
+                               iv_row         TYPE i.
+
+
+  DATA: lv_length     TYPE i,        " Actual length of the component
+        lv_max_length TYPE i.        " Maximum allowed length for each field
+
+  " Determine the maximum length for each field based on index
+  CASE iv_index.
+    WHEN 1.
+      lv_max_length = 10. " vbeln - Sales Order ID
+    WHEN 2.
+      lv_max_length = 40. " matnr - Material (18 characters)
+    WHEN 3.
+      lv_max_length = 13. " wmeng - Order Quantity (13 digits with 3 decimal places)
+*    WHEN 4.
+*      lv_max_length = 3.  " dzieme - Order Quantity Unit (3 characters)
+    WHEN 4.
+      lv_max_length = 6.  " posnr - Item (6 characters)
+    WHEN 5.
+      lv_max_length = 4.  " etenr - Schedule Line (4 characters)
+    WHEN 6.
+      lv_max_length = 10. " lfdat_v - Delivery Date (YYYY.MM.DD format)
+    WHEN 7.
+      lv_max_length = 4.  " werks_d - Plant (4 characters)
+    WHEN 8.
+      lv_max_length = 4.  " lgort_d - Storage Location (4 characters)
+    WHEN 9.
+      lv_max_length = 4.  " pstyv - Item Category (4 characters)
+    WHEN 10.
+      lv_max_length = 4.  " kscha - Condition Type (4 characters)
+    WHEN 11.
+      lv_max_length = 15. " netpr - Net Price (15 digits with 2 decimal places)
+    WHEN 12.
+      lv_max_length = 3.  " kpein - Pricing Unit (3 characters)
+  ENDCASE.
+
+  " Check if the component exceeds the maximum allowed length
+  lv_length = strlen( iv_component ).
+  IF lv_length > lv_max_length.
+    DATA lv_message TYPE string.
+    lv_message = |Component length { lv_length } exceeds maximum length { lv_max_length }|.
+    PERFORM log_error USING iv_sheet_name iv_column_name iv_row iv_index lv_message.
+  ENDIF.
+
+  " Mandatory field check for specified fields
+  IF iv_index = 1 OR iv_index = 2 OR iv_index = 3 OR iv_index = 4 OR
+     iv_index = 7 OR iv_index = 8 OR iv_index = 9 OR iv_index = 10.
+    PERFORM check_not_initial USING iv_component iv_sheet_name iv_column_name iv_row iv_index.
+  ENDIF.
+
+  " Numeric validation for specified fields
+  IF iv_index = 1 OR iv_index = 3 OR iv_index = 4 OR iv_index = 5 OR
+     iv_index = 11 OR iv_index = 12.
+    PERFORM check_is_numeric USING iv_component iv_sheet_name iv_column_name iv_row iv_index.
+  ENDIF.
+
+  " Date validation for Delivery Date field
+  IF iv_index = 6.
+    PERFORM validate_and_convert_date USING iv_component
+                                      iv_sheet_name iv_column_name iv_row iv_index.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form check_not_initial
+*&---------------------------------------------------------------------*
+*& Checks if the field is empty (initial). If it is, logs an error
+*& indicating that the field is required.
+*&---------------------------------------------------------------------*
+FORM check_not_initial USING      p_component   TYPE any
+                                  iv_sheet_name TYPE string
+                                  iv_column     TYPE string
+                                  iv_row        TYPE i
+                                  iv_columnv    TYPE i.
+
+  " Check if the component is empty
+  IF p_component IS INITIAL.
+    DATA lv_message TYPE string.
+    lv_message = 'This field is required'.
+
+    " Log an error indicating that this field cannot be left empty
+    PERFORM log_error USING iv_sheet_name iv_column iv_row iv_columnv lv_message.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form check_is_numeric
+*&---------------------------------------------------------------------*
+*& Validates whether the given component contains only numeric values.
+*& For specific columns (e.g., column 'L'), allows decimal numbers
+*& with up to 2 digits after the decimal point. Logs errors if the
+*& validation fails.
+*&---------------------------------------------------------------------*
+FORM check_is_numeric USING    p_component    TYPE any
+                               iv_sheet_name TYPE string
+                               iv_column     TYPE string
+                               iv_row        TYPE i
+                               iv_columnv     TYPE i.
+
+  " Check if the component is not empty
+  IF p_component IS NOT INITIAL.
+
+    " Convert the input component to a string for further processing
+    DATA(lv_component) = CONV string( p_component ).
+    DATA(lv_component_d) = CONV string( p_component ).
+
+    " Remove any extra spaces from the string
+    CONDENSE lv_component.
+    CONDENSE lv_component_d.
+
+    " Declare variables for data type and error message
+    DATA: lv_htype   TYPE dd01v-datatype,
+          lv_message TYPE string.
+
+    " Count the occurrences of '.' (decimal points) in the component
+    FIND '.' IN lv_component MATCH COUNT DATA(dot_count).
+
+    " Remove all '.' to simplify numeric validation
+    REPLACE ALL OCCURRENCES OF '.' IN lv_component WITH ''.
+
+    " Check if the modified component is numeric
+    CALL FUNCTION 'NUMERIC_CHECK'
+      EXPORTING
+        string_in = lv_component
+      IMPORTING
+        htype     = lv_htype.
+
+    " Proceed if the value is numeric
+    IF lv_htype = 'NUMC'.
+
+      " Check for decimal handling specific to column 'L'
+      IF iv_column = 'K' AND dot_count > 0  AND iv_sheet_name = 'Item Data'.
+
+        " Split the value into integer and decimal parts
+        DATA(lv_integer_part) = lv_component_d.
+        SPLIT lv_component_d AT '.' INTO lv_integer_part DATA(lv_decimal_part).
+
+        " Validate if the decimal part has 1 or 2 digits
+        IF strlen( lv_decimal_part ) = 1 OR strlen( lv_decimal_part ) = 2.
+          RETURN. " Valid decimal number, exit the form
+        ELSE.
+          " Log an error if decimal part has more than 2 digits
+          lv_message = 'Decimal numbers can have a maximum of 2 digits after the point'.
+          PERFORM log_error USING iv_sheet_name iv_column iv_row iv_columnv lv_message.
+          RETURN.
+        ENDIF.
+
+      ELSEIF dot_count > 0. " Handle decimal numbers for other fields
+        " Log an error if decimals are not allowed for this field
+        lv_message = 'Decimal numbers are not allowed in this field'.
+        PERFORM log_error USING iv_sheet_name iv_column iv_row iv_columnv lv_message.
+        RETURN.
+      ENDIF.
+
+      IF  iv_column = 'C' AND iv_sheet_name = 'Item Data'.
+        DATA lv_integer_value TYPE i.
+        CLEAR lv_integer_value.
+        IF lv_component IS NOT INITIAL.
+          lv_integer_value = CONV i( lv_component ).
+        ENDIF.
+
+        IF lv_integer_value = 0.
+          PERFORM log_error USING iv_sheet_name
+                                  iv_column
+                                  iv_row
+                                  iv_columnv
+                                  'This field must be greater than zero'.
+
+        ENDIF.
+      ENDIF.
+
+    ELSE.
+      " Log an error if the component is not numeric
+      lv_message = 'This field must contain only numeric values'.
+      PERFORM log_error USING iv_sheet_name iv_column iv_row iv_columnv lv_message.
+      gv_is_error = abap_false.
+      RETURN.
+    ENDIF.
+
+  ENDIF.
+
+  " Exit the form if the component is initial
+ENDFORM.
+
+
+
+*&---------------------------------------------------------------------*
+*& Form normalize_number_format
+*&---------------------------------------------------------------------*
+*& Removes thousand separators (commas) from the input value and attempts
+*& to convert it to a numeric type. Clears output if conversion fails.
+*&---------------------------------------------------------------------*
+FORM normalize_number_format USING    iv_value TYPE any
+                             CHANGING cv_value TYPE any.
+
+  DATA: lv_temp TYPE string.
+
+  " Remove any thousand separators (commas) from the input value
+  lv_temp = iv_value.
+  REPLACE ALL OCCURRENCES OF ',' IN lv_temp WITH ''.
+
+  " Attempt to convert the normalized value to a numeric type
+  TRY.
+      cv_value = lv_temp.
+    CATCH cx_sy_conversion_no_number.
+      " If conversion fails, clear cv_value to handle the error gracefully
+      CLEAR cv_value.
+  ENDTRY.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form Add_padding_before_alv
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+FORM Add_padding_before_alv USING p_data TYPE any
+                                  p_sheet_name.
+  " Field symbol to dynamically access the fields of the structure
+  FIELD-SYMBOLS: <fs_field> TYPE any.
+
+  " Counter to track the field index
+  DATA lv_field_index TYPE i VALUE 1.
+
+  " Loop through all fields in the structure, checking specific indices
+  DO.
+    ASSIGN COMPONENT lv_field_index OF STRUCTURE p_data TO <fs_field>.
+
+    " Exit if there are no more fields to process
+    IF sy-subrc <> 0.
+      EXIT.
+    ENDIF.
+
+    IF p_sheet_name = gv_headers_sheet.
+      " Apply padding only for specified field indices
+      IF lv_field_index = 7 OR lv_field_index = 9 OR
+         lv_field_index = 10 OR lv_field_index = 14 OR lv_field_index = 18 OR
+         lv_field_index = 20 OR lv_field_index = 21.
+        " Call the add padding function for the current field
+        PERFORM add_padding_multiple_fields USING <fs_field>.
+      ENDIF.
+
+    ELSEIF p_sheet_name = gv_items_sheet.
+      " Apply padding only for specified field indices
+      IF  lv_field_index = 3 OR lv_field_index = 5 OR lv_field_index = 6 OR
+       lv_field_index = 12 OR lv_field_index = 13.
+        " Call the add padding function for the current field
+        PERFORM add_padding_multiple_fields USING <fs_field>.
+      ENDIF.
+
+    ENDIF.
+    " Increment field index to move to the next field
+    lv_field_index = lv_field_index + 1.
+  ENDDO.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form check_soToPa
+*&---------------------------------------------------------------------*
+FORM check_soToPa CHANGING pv_Same_soToPa TYPE abap_bool.
+
+  DATA: lo_event_handler TYPE REF TO gcl_event_handler.
+  DATA: lv_soToPa_ref    TYPE kunag,
+        lv_log_handle    TYPE balloghndl,
+        lv_message       TYPE bal_s_msg,
+        lv_error_flag    TYPE abap_bool,
+        lv_ref_doc       TYPE vbeln,
+        m_control_handle TYPE balloghndl,
+        mr_container     TYPE REF TO cl_gui_dialogbox_container,
+        lv_ref_name      TYPE string,
+        lv_msgv1         TYPE string,
+        lv_msgv2         TYPE string,
+        lv_msgv3         TYPE string,
+        lv_msgv4         TYPE string.
+
+  " Initialize the return variable
+  pv_Same_soToPa = abap_true.
+  lv_error_flag = abap_false.
+
+  " Set up the log header data
+  DATA: lv_log_header TYPE bal_s_log.
+
+  " Create a new log
+  CALL FUNCTION 'BAL_LOG_CREATE'
+    EXPORTING
+      i_s_log                 = lv_log_header
+    IMPORTING
+      e_log_handle            = lv_log_handle
+    EXCEPTIONS
+      log_header_inconsistent = 1.
+
+  " Check for errors in log creation
+  IF sy-subrc <> 0.
+    MESSAGE |Log creation failed: Check if { lv_log_header-object } and { lv_log_header-subobject } exist in SLG0| TYPE 'E'.
+    RETURN.
+  ENDIF.
+
+  LOOP AT gt_so_headers INTO gs_so_header WHERE refsonum IS NOT INITIAL
+                                              OR refbilldocnum IS NOT INITIAL.
+    " Reset reference sold-to party for each loop iteration
+    CLEAR lv_soToPa_ref.
+
+    " Handle Reference Sales Order Number
+    IF gs_so_header-RefSONum IS NOT INITIAL AND gs_so_header-RefBillDocNum IS INITIAL.
+*      SELECT SINGLE kunnr INTO lv_soToPa_ref
+*        FROM vbak
+*        WHERE vbeln = gs_so_header-RefSONum.
+
+      READ TABLE gt_vbak INTO DATA(ls_vbak)
+     WITH KEY vbeln = gs_so_header-RefSONum.
+      lv_soToPa_ref = ls_vbak-kunnr.
+
+
+      lv_ref_doc = gs_so_header-RefSONum.
+      lv_ref_name = 'Reference Sales Order Number'.
+    ENDIF.
+
+    " Handle Reference Billing Document Number
+    IF gs_so_header-RefBillDocNum IS NOT INITIAL AND gs_so_header-RefSONum IS INITIAL.
+*      SELECT SINGLE kunag INTO lv_soToPa_ref
+*       FROM vbrk
+*       WHERE vbeln = gs_so_header-RefBillDocNum.
+
+      READ TABLE gt_vbrk INTO DATA(ls_vbrk)
+     WITH KEY vbeln = gs_so_header-RefBillDocNum.
+      lv_soToPa_ref = ls_vbrk-kunag.
+
+
+      lv_ref_doc = gs_so_header-RefBillDocNum.
+      lv_ref_name = 'Reference Billing Document Number'.
+    ENDIF.
+
+    " Padding for Sold-To Party fields
+    PERFORM add_padding_multiple_fields USING gs_so_header-soldtoparty.
+    PERFORM add_padding_multiple_fields USING lv_soToPa_ref.
+
+    IF gs_so_header-RefSONum IS NOT INITIAL AND gs_so_header-RefBillDocNum IS NOT INITIAL.
+      lv_msgv1 = | { gs_so_header-salesorder } |.
+      lv_msgv2 = 'Both Reference SO and'.
+      lv_msgv3 = 'Reference Billing Doc are filled.'.
+      lv_msgv4 = 'Only one is allowed.'.
+
+      PERFORM add_message_to_log USING lv_log_handle
+                                       'E'                            " Message Type
+                                       'Z03_FA24_GR08_MSGS'           " Message ID
+                                       '011'                          " Message Number
+                                       lv_msgv1        " Message Variable 1
+                                       lv_msgv2
+                                       lv_msgv3
+                                       lv_msgv4.
+
+      lv_error_flag = abap_true.
+      pv_Same_soToPa = abap_false.
+
+      CONTINUE.
+    ENDIF.
+
+
+    IF lv_soToPa_ref <> gs_so_header-soldtoparty.
+      lv_msgv1 = | { gs_so_header-salesorder } |.
+      lv_msgv2 = lv_ref_name.
+      lv_msgv3 = lv_ref_doc.
+      lv_msgv4 = 'cannot be identified for Sold-To Party.'.
+
+      PERFORM add_message_to_log USING lv_log_handle
+                                       'E'
+                                       'Z03_FA24_GR08_MSGS'
+                                       '011'
+                                       lv_msgv1
+                                       lv_msgv2
+                                       lv_msgv3
+                                       lv_msgv4.
+
+
+      lv_error_flag = abap_true.
+      pv_Same_soToPa = abap_false.
+    ENDIF.
+
+  ENDLOOP.
+
+  " Display the log if there were errors
+  IF lv_error_flag = abap_true.
+    " Create a container for the popup log display
+    IF mr_container IS INITIAL.
+      mr_container = NEW cl_gui_dialogbox_container(
+                        no_autodef_progid_dynnr = 'X'
+                        caption = 'Error Log'
+                        width = '750'
+                        height = '300' ).
+
+      " Initialize the event handler object
+      IF lo_event_handler IS INITIAL.
+        CREATE OBJECT lo_event_handler.
+
+        " Set up the event handler for closing the dialog box
+        SET HANDLER lo_event_handler->on_close FOR mr_container.
+
+      ENDIF.
+
+    ENDIF.
+
+    " Define the display profile
+    DATA: ls_display_profile TYPE bal_s_prof.
+    ls_display_profile-title = 'Error Log'.
+
+    " Initialize output of log display
+    CALL FUNCTION 'BAL_CNTL_CREATE'
+      EXPORTING
+        i_container          = mr_container
+        i_s_display_profile  = ls_display_profile
+        i_t_log_handle       = VALUE bal_t_logh( ( lv_log_handle ) )
+      IMPORTING
+        e_control_handle     = m_control_handle
+      EXCEPTIONS
+        profile_inconsistent = 1
+        internal_error       = 2
+        OTHERS               = 3.
+
+    IF sy-subrc <> 0.
+      MESSAGE 'Error displaying log' TYPE 'E'.
+    ENDIF.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form add_message_to_log
+*&---------------------------------------------------------------------*
+FORM add_message_to_log USING pv_log_handle   TYPE balloghndl
+                             pv_msgty        TYPE symsgty
+                             pv_msgid        TYPE symsgid
+                             pv_msgno        TYPE symsgno
+                             pv_msgv1        TYPE string
+                             pv_msgv2        TYPE string
+                             pv_msgv3        TYPE string
+                             pv_msgv4        TYPE string.
+
+  DATA: lv_message TYPE bal_s_msg.
+
+  " Populate the message structure
+  lv_message-msgty = pv_msgty.
+  lv_message-msgid = pv_msgid.
+  lv_message-msgno = pv_msgno.
+  lv_message-msgv1 = pv_msgv1.
+  lv_message-msgv2 = pv_msgv2.
+  lv_message-msgv3 = pv_msgv3.
+  lv_message-msgv4 = pv_msgv4.
+
+  " Add the message to the log
+  CALL FUNCTION 'BAL_LOG_MSG_ADD'
+    EXPORTING
+      i_log_handle     = pv_log_handle
+      i_s_msg          = lv_message
+    EXCEPTIONS
+      log_not_found    = 1
+      msg_inconsistent = 2
+      log_is_full      = 3
+      OTHERS           = 4.
+
+  IF sy-subrc <> 0.
+    MESSAGE 'Error adding message to log' TYPE 'E'.
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form validation_for_ref
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+FORM validation_for_ref  USING    p_gs_so_header TYPE ty_so_header
+                                  p_lv_worksheet_name TYPE string
+                                  p_lv_row TYPE i .
+
+
+  IF p_gs_so_header-billingblock IS INITIAL.
+    PERFORM log_error USING p_lv_worksheet_name
+                            'Q'
+                            p_lv_row
+                            17
+                            'This field is required'.
+
+  ENDIF.
+
+  IF p_gs_so_header-orderreason IS INITIAL.
+    PERFORM log_error USING p_lv_worksheet_name
+                            'R'
+                            p_lv_row
+                            18
+                            'This field is required'.
+
+  ENDIF.
+
+  IF p_gs_so_header-refsonum IS INITIAL AND p_gs_so_header-refbilldocnum IS INITIAL.
+    DATA lv_length TYPE i.
+    DESCRIBE TABLE gt_field_header LINES lv_length.
+    PERFORM log_error USING p_lv_worksheet_name
+                            'S/T'
+                            p_lv_row
+                            lv_length
+                            'One of the fields must be provided'.
+
+  ENDIF.
+
+  IF ( gs_so_header-refsonum IS NOT INITIAL AND gs_so_header-refbilldocnum IS INITIAL ) OR
+       ( gs_so_header-refsonum IS INITIAL AND gs_so_header-refbilldocnum IS NOT INITIAL ).
+
+
+
+    DATA: lv_soToPa_ref TYPE kunag,
+          lv_columnv    TYPE i,
+          lv_column     TYPE string.
+    " Handle Reference Sales Order Number
+    IF p_gs_so_header-RefSONum IS NOT INITIAL AND p_gs_so_header-RefBillDocNum IS INITIAL.
+      PERFORM add_padding_multiple_fields USING p_gs_so_header-RefSONum.
+*      SELECT SINGLE kunnr INTO lv_soToPa_ref
+*        FROM vbak
+*        WHERE vbeln = p_gs_so_header-RefSONum.
+
+      READ TABLE gt_vbak INTO DATA(ls_vbak)
+     WITH KEY vbeln = p_gs_so_header-RefSONum.
+      lv_soToPa_ref = ls_vbak-kunnr.
+
+      lv_column = 'S'.
+      lv_columnv = 19.
+
+    ENDIF.
+
+    " Handle Reference Billing Document Number
+    IF p_gs_so_header-RefBillDocNum IS NOT INITIAL AND p_gs_so_header-RefSONum IS INITIAL.
+      PERFORM add_padding_multiple_fields USING p_gs_so_header-RefBillDocNum.
+*      SELECT SINGLE kunag INTO lv_soToPa_ref
+*       FROM vbrk
+*       WHERE vbeln = p_gs_so_header-RefBillDocNum.
+
+      READ TABLE gt_vbrk INTO DATA(ls_vbrk)
+ WITH KEY vbeln = p_gs_so_header-RefBillDocNum.
+      lv_soToPa_ref = ls_vbrk-kunag.
+
+
+      lv_column = 'T'.
+      lv_columnv = 20.
+    ENDIF.
+
+    " Padding for Sold-To Party fields
+    PERFORM add_padding_multiple_fields USING p_gs_so_header-soldtoparty.
+    PERFORM add_padding_multiple_fields USING lv_soToPa_ref.
+
+    IF lv_soToPa_ref <> p_gs_so_header-soldtoparty.
+
+      PERFORM log_error USING p_lv_worksheet_name
+                              lv_column
+                              p_lv_row
+                              lv_columnv
+                              'This field cannot be identified for Sold-To Party'.
+
+
+    ENDIF.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form check_material_ref
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+FORM check_material_ref USING p_gs_so_item TYPE ty_so_item
+                              p_lv_worksheet_name TYPE string
+                              p_lv_row TYPE i.
+
+
+  DATA: lv_salesorder  TYPE vbeln_va,  " Variable to hold Sales Order ID
+        lv_billing_doc TYPE vbeln_vf,
+        lv_column      TYPE string VALUE 'B',
+        lv_columnv     TYPE i VALUE 2.
+  " Loop through each selected Sales Order header
+  LOOP AT gt_so_headers INTO gs_so_header WHERE salesorder = p_gs_so_item-salesorder.
+
+    IF gs_so_header-refsonum  IS NOT INITIAL.
+      PERFORM add_padding_multiple_fields USING gs_so_header-refsonum.
+      READ TABLE gt_vbap INTO DATA(ls_vbap)
+      WITH KEY  matnr = p_gs_so_item-material
+                vbeln = gs_so_header-refsonum.
+*                posnr = gs_so_item-Item.
+      lv_salesorder = ls_vbap-vbeln.
+
+      IF  lv_salesorder <> gs_so_header-refsonum.
+        PERFORM log_error USING p_lv_worksheet_name
+                                lv_column
+                                p_lv_row
+                                lv_columnv
+                                'Field cannot define Reference Sales Order Number'.
+
+      ENDIF.
+    ENDIF.
+
+    IF gs_so_header-refbilldocnum IS NOT INITIAL.
+      PERFORM add_padding_multiple_fields USING gs_so_header-refbilldocnum.
+      READ TABLE gt_vbrp INTO DATA(ls_vbrp)
+      WITH KEY  matnr = p_gs_so_item-material
+      vbeln = gs_so_header-refbilldocnum.
+*      posnr = gs_so_item-Item.
+      lv_billing_doc = ls_vbrp-vbeln.
+
+
+      IF lv_billing_doc <> gs_so_header-refbilldocnum.
+        PERFORM log_error USING p_lv_worksheet_name
+                                lv_column
+                                p_lv_row
+                                lv_columnv
+                                'Field cannot define Reference Billing Doc Number'.
+
+      ENDIF.
+    ENDIF.
+  ENDLOOP.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form convert_currency_to_ext_ref new_change
+*&---------------------------------------------------------------------*
+FORM convert_currency_to_ext_ref USING    iv_currency        TYPE tcurc-waers
+                                            iv_amount_internal TYPE netpr
+                                    CHANGING cv_amount_external TYPE bapicurr-bapicurr.
+
+  DATA: lv_val TYPE bapicurr-bapicurr.
+
+  " Call BAPI to convert currency from internal to external format
+  CALL FUNCTION 'BAPI_CURRENCY_CONV_TO_EXTERNAL'
+    EXPORTING
+      currency        = iv_currency       " Input currency code
+      amount_internal = iv_amount_internal " Internal format amount
+    IMPORTING
+      amount_external = lv_val            " Converted external format amount
+    EXCEPTIONS
+      OTHERS          = 1.                " Handle exceptions
+
+  " If no errors, assign the converted value
+  IF sy-subrc = 0.
+    cv_amount_external = lv_val.
+  ELSE.
+    CLEAR cv_amount_external. " Return empty value if an error occurs
+  ENDIF.
+
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form convert_currency_to_ext new_change
+*&---------------------------------------------------------------------*
+FORM convert_currency_to_ext USING    iv_currency        TYPE tcurc-waers
+                                            iv_amount_internal TYPE netpr
+                                    CHANGING cv_amount_external TYPE bapicurx-bapicurx.
+
+  DATA: lv_val TYPE bapicurx-bapicurx.
+
+  " Call BAPI to convert currency from internal to external format
+  CALL FUNCTION 'BAPI_CURRENCY_CONV_TO_EXTERN_9'
+    EXPORTING
+      currency        = iv_currency       " Input currency code
+      amount_internal = iv_amount_internal " Internal format amount
+    IMPORTING
+      amount_external = lv_val            " Converted external format amount
+    EXCEPTIONS
+      OTHERS          = 1.                " Handle exceptions
+
+  " If no errors, assign the converted value
+  IF sy-subrc = 0.
+    cv_amount_external = lv_val.
+  ELSE.
+    CLEAR cv_amount_external. " Return empty value if an error occurs
+  ENDIF.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form convert_currency_to_internal new_change
+*&---------------------------------------------------------------------*
+FORM convert_currency_to_internal USING    iv_currency             TYPE tcurc-waers
+                                            iv_amount_external      TYPE bapicurx-bapicurx
+                                    CHANGING cv_amount_internal     TYPE netpr.
+
+  " Call BAPI to convert currency from external to internal format
+  CALL FUNCTION 'BAPI_CURRENCY_CONV_TO_INTERN_9'
+    EXPORTING
+      currency             = iv_currency           " Input currency code
+      amount_external      = iv_amount_external
+      max_number_of_digits = 11                    " Maximum digits for internal representation
+    IMPORTING
+      amount_internal      = cv_amount_internal
+    EXCEPTIONS
+      OTHERS               = 1.                    " Handle exceptions
+
+  IF sy-subrc = 0.
+  ELSE.
+    CLEAR cv_amount_internal.                      " Return empty value if an error occurs
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form get_salesdoc_currency new_change
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+FORM get_salesdoc_currency
+  USING    iv_sales_org     TYPE vkorg
+           iv_sold_to_party TYPE kunnr
+           iv_dis_channel   TYPE vtweg
+           iv_division      TYPE spart
+  CHANGING ev_salesdoccur   TYPE waers.
+
+*  DATA: lv_salesdoccur TYPE waers.
+
+*  SELECT SINGLE waers
+*    INTO lv_salesdoccur
+*    FROM knvv
+*    WHERE kunnr = iv_sold_to_party
+*          AND vkorg = iv_sales_org
+*          AND vtweg = iv_dis_channel
+*          AND spart = iv_division.
+
+  READ TABLE gt_knvv INTO DATA(ls_knvv)
+  WITH KEY kunnr = iv_sold_to_party
+            vkorg = iv_sales_org
+            vtweg = iv_dis_channel
+            spart = iv_division.
+  IF sy-subrc = 0.
+    ev_salesdoccur = ls_knvv-waers.
+  ELSE.
+    ev_salesdoccur = ' '.
+  ENDIF.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form get_salesdoc_currency  new_change
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+FORM get_unit_quantity
+  USING    iv_material     TYPE matnr
+  CHANGING ev_unit   TYPE dzieme.
+
+*  DATA: lv_unit TYPE dzieme.
+
+*  SELECT SINGLE meins
+*     INTO lv_unit
+*     FROM mara
+*     WHERE matnr = iv_material.
+
+
+  READ TABLE gt_mara INTO DATA(ls_mara)
+   WITH KEY matnr = iv_material.
+
+  IF sy-subrc = 0.
+    ev_unit = ls_mara-meins.
+  ELSE.
+    ev_unit = ' '.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form map_currency new_change
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+FORM map_currency  USING    iv_salesorder
+                   CHANGING ev_currency.
+  " Lookup SalesDocCur from gt_so_headers using SalesOrder
+  READ TABLE gt_so_headers INTO DATA(ls_so_header)
+    WITH KEY SalesOrder = iv_salesorder.
+  IF sy-subrc = 0.
+    ev_currency = ls_so_header-SalesDocCur. " Assign currency to the item
+  ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form insert_data_itab
+*&---------------------------------------------------------------------*
+*& text
+*&---------------------------------------------------------------------*
+FORM insert_data_itab.
+
+  CLEAR: gt_mara.
+
+  SELECT matnr meins
+  INTO CORRESPONDING FIELDS OF TABLE gt_mara
+  FROM mara.
+
+
+  CLEAR: gt_vbak.
+  SELECT vbeln vbtyp kunnr
+    INTO CORRESPONDING FIELDS OF TABLE gt_vbak
+    FROM vbak.
+***         1
+**      SELECT SINGLE vbtyp INTO lv_refdoc_cat_so
+**      FROM vbak
+**      WHERE vbeln = is_so_header-RefSONum.
+***    *     5
+**      SELECT SINGLE vbtyp INTO lv_refdoc_cat_so
+**      FROM vbak
+**      WHERE vbeln = is_so_header-RefSONum.
+***             *  7
+**        SELECT SINGLE kunnr INTO lv_soToPa_ref
+**        FROM vbak
+**        WHERE vbeln = gs_so_header-RefSONum.
+***      *        9
+**        SELECT SINGLE kunnr INTO lv_soToPa_ref
+**        FROM vbak
+**        WHERE vbeln = p_gs_so_header-RefSONum.
+*
+  CLEAR gt_vbrk.
+  SELECT vbtyp vbeln kunag
+  INTO CORRESPONDING FIELDS OF TABLE gt_vbrk
+  FROM vbrk.
+***2
+**     SELECT SINGLE vbtyp INTO lv_refdoc_cat_bil
+**      FROM vbrk
+**      WHERE vbeln = is_so_header-RefBillDocNum.
+***       *6
+**       SELECT SINGLE vbtyp INTO lv_refdoc_cat_bil
+**      FROM vbrk
+**      WHERE vbeln = is_so_header-RefBillDocNum.
+***       *      8
+**      SELECT SINGLE kunag INTO lv_soToPa_ref
+**       FROM vbrk
+**       WHERE vbeln = gs_so_header-RefBillDocNum.
+**          10
+**           SELECT SINGLE kunag INTO lv_soToPa_ref
+**       FROM vbrk
+**       WHERE vbeln = p_gs_so_header-RefBillDocNum.
+**  3
+  CLEAR gt_vbap.
+  SELECT vbeln matnr vbeln posnr
+  INTO CORRESPONDING FIELDS OF TABLE gt_vbap
+  FROM vbap.
+***         *             11
+**            SELECT SINGLE vbeln INTO lv_salesorder
+**           FROM vbap
+**           WHERE matnr = p_gs_so_item-material
+**        AND vbeln = gs_so_header-refsonum
+**        AND posnr = gs_so_item-Item.
+*
+**       SELECT SINGLE posnr
+**    INTO ls_item_f_ref-ref_doc_it
+**    FROM vbap
+**    WHERE vbeln = is_so_header-RefSONum
+**      AND matnr = gs_so_item-Material
+**       AND posnr = gs_so_item-Item.
+
+  CLEAR gt_vbrp.
+  SELECT vbeln matnr posnr
+   INTO CORRESPONDING FIELDS OF TABLE gt_vbrp
+   FROM vbrp.
+***               12
+**                SELECT SINGLE vbeln INTO lv_billing_doc
+**           FROM vbrp
+**           WHERE matnr = p_gs_so_item-material
+**         AND vbeln = gs_so_header-refbilldocnum
+**        AND posnr = gs_so_item-Item.
+*         4
+**         SELECT SINGLE posnr
+**    INTO ls_item_f_ref-ref_doc_it
+**    FROM vbrp
+**    WHERE vbeln = is_so_header-RefBillDocNum
+**      AND matnr = gs_so_item-Material
+**       AND posnr = gs_so_item-Item.
+*
+  CLEAR gt_knvv.
+  SELECT  waers kunnr vkorg vtweg spart
+   INTO CORRESPONDING FIELDS OF TABLE gt_knvv
+   FROM knvv.
+**                  13
+*    SELECT SINGLE waers
+*    INTO lv_salesdoccur
+*    FROM knvv
+*    WHERE kunnr = iv_sold_to_party
+*          AND vkorg = iv_sales_org
+*          AND vtweg = iv_dis_channel
+*          AND spart = iv_division.
+ENDFORM.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

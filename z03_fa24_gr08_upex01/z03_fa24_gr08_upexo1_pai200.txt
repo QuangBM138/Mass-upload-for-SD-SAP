@@ -1,0 +1,25 @@
+*&---------------------------------------------------------------------*
+*& Include          Z03_FA24_GR08_UPEXO1_PAI200
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*&      Module  USER_COMMAND_0200  INPUT
+*&---------------------------------------------------------------------*
+*       Handles user commands for screen 200
+*----------------------------------------------------------------------*
+MODULE user_command_0200 INPUT.
+
+ENDMODULE.
+
+*&---------------------------------------------------------------------*
+*&      Module  EXIT_COMMAND_0200_EVENT  INPUT
+*&---------------------------------------------------------------------*
+*       Handles exit command events for screen 200
+*----------------------------------------------------------------------*
+MODULE exit_command_0200_event INPUT.
+  " Call subroutine to handle exit commands, passing the user command
+  PERFORM handle_exit_command USING sy-ucomm.
+ENDMODULE.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

@@ -1,0 +1,51 @@
+*&---------------------------------------------------------------------*
+*& Report Z03_FA24_GR08_UPEX01
+*&---------------------------------------------------------------------*
+*& This program reads data from an Excel file (header and item) Sales order
+*& and displays it in two ALV grids on a custom screen.
+*&---------------------------------------------------------------------*
+REPORT z03_fa24_gr08_upexo1 NO STANDARD PAGE HEADING.
+
+INCLUDE z03_fa24_gr08_upexo1_top.       " Global data and types, Class definitions
+INCLUDE z03_fa24_gr08_upexo1_class.     " Class  implementations
+INCLUDE z03_fa24_gr08_upexo1_sel.       " Selection screen parameters and events
+INCLUDE z03_fa24_gr08_upexo1_pbo100.    " PBO logic for screen 0100
+INCLUDE z03_fa24_gr08_upexo1_pai100.    " PAI logic for screen 0100
+INCLUDE z03_fa24_gr08_upexo1_pbo200.    " PBO logic for screen 0200
+INCLUDE z03_fa24_gr08_upexo1_pai200.    " PAI logic for screen 0200
+INCLUDE z03_fa24_gr08_upexo1_form.      " Form routines for the program
+INCLUDE z03_fa24_gr08_upexo1_start.     " START-OF-SELECTION processing
+INCLUDE z03_fa24_gr08_upexo1_tests.
+
+*GUI Texts
+*----------------------------------------------------------
+* ZTITLE_001 --> Sales Order Data from Excel File
+* ZTITLE_002 --> Sales Order Creation Log Summary
+
+
+*Selection texts
+*----------------------------------------------------------
+* P_FILE         Upload File:
+
+
+*Messages
+*----------------------------------------------------------
+*
+* Message class: Hard coded
+*   Log creation failed: Check if
+*
+* Message class: Z03_FA24_GR08_MSGS
+*000   Please select a file to upload
+*001   Error while reading file: &1
+*002   File download error occurred.
+*003   File downloaded successfully.
+*004   Invalid file format. Please select an Excel file with extension .xlsx
+*005   Sales Order ID is empty
+*006   No data found in &1.
+*007   No worksheets found in the Excel file
+*008   All selected Sales Orders have been created successfully.
+*009   There are unsuccessful Sales Orders. Please review the errors.
+*010   An error occurred while displaying the pop-up.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

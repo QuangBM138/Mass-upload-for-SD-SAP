@@ -1,0 +1,179 @@
+*&---------------------------------------------------------------------*
+*& Include          Z03_FA24_GR08_UPEXO1_TOP
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Type declarations
+*&---------------------------------------------------------------------*
+*& Definition of structures and internal tables for Sales Order Header and Item data
+*&---------------------------------------------------------------------*
+
+* Define structure and internal table for Sales Order Header
+TYPES:
+  BEGIN OF ty_so_header,
+    SalesOrder       TYPE vbeln_va,        " Sales Order (Temporary ID)
+    SalesOrderCr     TYPE vbeln_va,        " Sales Order (Temporary ID)
+    OrderType        TYPE auart,           " Order Type
+    SalesOrg         TYPE vkorg,           " Sales Organization
+    DistChannel      TYPE vtweg,           " Distribution Channel
+    Division         TYPE spart,           " Division
+    SalesOffice      TYPE vkbur,           " Sales Office
+    SalesGroup       TYPE vkgrp,           " Sales Group
+    SalesDistrict    TYPE bzirk,           " Sales District
+    SoldToParty      TYPE kunag,           " Sold-to Party
+    ShipToParty      TYPE kunwe,           " Ship-to Party
+    CustRef          TYPE bstkd,           " Customer Reference
+    RequestedDelDate TYPE edatu_vbak,      " Requested Delivery Date (YYYYMMDD)
+    SalesDocCur      TYPE waerk,           " Sales Document Currency
+    PaymentTerms     TYPE dzterm,          " Payment Terms (currently unused)
+    ShippingCond     TYPE vsbed,           " Shipping Conditions
+    PricingDate      TYPE prsdt,           " Pricing Date (YYYYMMDD)
+    DeliveryBlock    TYPE lifsk,           " Delivery Block
+    BillingBlock     TYPE faksk,           " Billing Block
+    OrderReason      TYPE augru,           " Order Reason
+    RefSONum         TYPE vgbel,           " Reference Sales Order Number
+    RefBillDocNum    TYPE vgbel,           " Reference Billing Document Number
+    celltab          TYPE lvc_t_styl,      " Cell style for ALV display
+    line_color       TYPE char4,           " Line color for display purposes
+*    SalesRegion      TYPE regio,           " Sales Region (removed)
+  END OF ty_so_header.
+
+* Define structure and internal table for Sales Order Item
+TYPES:
+  BEGIN OF ty_so_item,
+    SalesOrder    TYPE vbeln,              " Sales Order (Temporary ID)
+    Material      TYPE matnr,            " Material
+    OrderQty      TYPE wmeng,              " Order Quantity
+    OrderQtyUnit  TYPE dzieme,             " Order Quantity Unit
+    Item          TYPE posnr,              " Item number
+    ScheduleLine  TYPE etenr,              " Schedule Line
+    DeliveryDate  TYPE lfdat_v,            " Delivery Date
+    Plant         TYPE werks_d,            " Plant
+    StorageLoc    TYPE lgort_d,            " Storage Location
+    ItemCat       TYPE pstyv,              " Item Category
+    ConditionType TYPE kscha,              " Condition Type
+    NetPrice      TYPE netpr,              " Net Price
+    PriUnit       TYPE kpein,              " Pricing Unit
+    Currency      TYPE waerk,              " Pricing Unit
+  END OF ty_so_item.
+
+
+* Define structure for Sales Order Item with Index
+TYPES BEGIN OF ty_so_item_with_index.
+INCLUDE    TYPE ty_so_item.            " Reuse existing item structure
+TYPES: Index      TYPE i,                     " Additional index field
+       line_color TYPE char4,                 " Line color for display purposes
+       celltab    TYPE lvc_t_styl.            " Cell style for ALV display
+TYPES END OF ty_so_item_with_index.
+
+
+* Define structure for message handling
+TYPES: BEGIN OF ty_message,
+         status     TYPE bapi_mtype,       " Message status
+         so_temp    TYPE vbeln_va,         " Temporary Sales Order number
+         so         TYPE vbeln_va,         " Actual Sales Order number after creation
+         message    TYPE bapi_msg,         " Message content
+         icon       TYPE icon_d,           " Icon for display purposes
+         line_color TYPE char4,            " Line color for display purposes
+       END OF ty_message.
+
+TYPES: BEGIN OF ty_error,
+         sheet_name TYPE char20,     " Name of the worksheet where the error occurred
+         cell       TYPE char15,     " Cell reference (e.g., 'A1') for the error location
+         field_name TYPE char70,     " Name of the field where the error occurred
+         message    TYPE char60,    " Detailed error message
+       END OF ty_error.
+
+DATA: gt_errors TYPE TABLE OF ty_error.  " Internal table to hold error records
+
+
+*&---------------------------------------------------------------------*
+*& Data declarations
+*&---------------------------------------------------------------------*
+*& Variables and tables for managing Sales Order data and ALV display
+*&---------------------------------------------------------------------*
+
+DATA: gt_so_headers        TYPE TABLE OF ty_so_header,  " Table for header data
+      gs_so_header         TYPE ty_so_header,           " Structure for header data
+      gt_so_items          TYPE TABLE OF ty_so_item,    " Table for item data
+      gs_so_item           TYPE ty_so_item,             " Structure for item data
+      gt_so_items_filtered TYPE TABLE OF ty_so_item_with_index, " Table for items with index
+      gs_so_item_filtered  TYPE ty_so_item_with_index,  " Structure for item with index
+      gt_field_header      TYPE TABLE OF char70,
+      gt_field_item        TYPE TABLE OF char70,
+      gf_deleted_headers    TYPE flag,                           " Deletion flag for headers
+      gt_temp_headers      TYPE TABLE OF ty_so_header.          " Temporary table to hold header data
+
+* ALV containers and grids
+DATA:
+  go_custom_container_header   TYPE REF TO cl_gui_custom_container,   " Container for header display
+  go_custom_container_item     TYPE REF TO cl_gui_custom_container,   " Container for item display
+  go_alv_grid_header           TYPE REF TO cl_gui_alv_grid,           " ALV Grid for header data
+  go_alv_grid_item             TYPE REF TO cl_gui_alv_grid,           " ALV Grid for item data
+  gt_fieldcat                  TYPE lvc_t_fcat,                       " Field Catalog for ALV (LVC)
+  gs_layout                    TYPE lvc_s_layo,                       " ALV layout structure
+  go_custom_container_messages TYPE REF TO cl_gui_custom_container,   " Custom Container for message display
+  go_alv_grid_messages         TYPE REF TO cl_gui_alv_grid.           " ALV Grid for message display
+
+* Variables to store sheet names for header and item data
+DATA: gv_headers_sheet TYPE string VALUE 'Header Data', " Sheet name for Header data
+      gv_items_sheet   TYPE string VALUE 'Item Data',   " Sheet name for Item data
+      gv_is_empty      TYPE abap_bool,                  " Boolean flag for empty check
+      gv_commit        TYPE abap_bool,                  " Flag for BAPI commit
+      gv_is_error      TYPE abap_bool VALUE abap_true,                  " Flag for numeric
+      gv_cnt           TYPE i,                          " Counter for iterations
+      gv_color_success TYPE char4 VALUE 'C5',           " Color code for success
+      gv_color_error   TYPE char4 VALUE 'C6',           " Color code for error
+      gv_color_warning TYPE char4 VALUE 'C3',           " Color code for warning
+      gv_color_clear   TYPE char4 VALUE ''.           " Color code for created status
+
+* Excel-related objects and data references
+DATA: go_excel_ref TYPE REF TO cl_fdt_xl_spreadsheet,   " Reference to Excel spreadsheet object
+      go_data_ref  TYPE REF TO data.                    " Generic data reference
+
+* Field-symbols for dynamic data handling
+FIELD-SYMBOLS: <gt_data_h> TYPE STANDARD TABLE,       " Field-symbol for header data
+               <gt_data_i> TYPE STANDARD TABLE,       " Field-symbol for item data
+               <component> TYPE any.           " Field-symbol for generic component
+
+* BAPI-related data tables
+DATA: gt_so_headers_selected TYPE TABLE OF ty_so_header,   " Table for selected Sales Order headers
+      gt_so_items_for_slt_h  TYPE TABLE OF ty_so_item.     " Table for items based on selected headers
+
+* Message handling table and structure
+DATA: gt_messages TYPE TABLE OF ty_message,   " Table to store messages
+      gs_message  TYPE ty_message.            " Temporary structure for message
+DATA: gf_deleted TYPE flag.
+
+*itab for data from database
+DATA: gt_mara TYPE TABLE OF mara,
+      gt_vbak TYPE TABLE of vbak,
+      gt_vbrk TYPE TABLE of vbrk,
+      gt_vbap TYPE TABLE of vbap,
+      gt_knvv TYPE TABLE of knvv,
+      gt_vbrp TYPE TABLE of vbrp.
+
+* Event handler class definition
+CLASS gcl_event_handler DEFINITION.
+  PUBLIC SECTION.
+    METHODS: on_double_click FOR EVENT double_click OF cl_gui_alv_grid
+      IMPORTING e_row,                           " Method for handling double-click event on ALV grid
+      on_close FOR EVENT close OF cl_gui_dialogbox_container IMPORTING sender,
+*    data change event
+      handle_data_changed  FOR EVENT data_changed
+        OF cl_gui_alv_grid
+        IMPORTING er_data_changed,
+*    data change finished event
+      handle_changed_finished FOR EVENT data_changed_finished
+        OF cl_gui_alv_grid
+        IMPORTING e_modified
+                  et_good_cells.
+    CLASS-METHODS:  get_excel_col
+      IMPORTING
+        VALUE(i_col)    TYPE i                  " Method to get Excel column name from index
+      RETURNING
+        VALUE(r_column) TYPE string.
+ENDCLASS.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

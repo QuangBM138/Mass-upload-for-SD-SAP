@@ -1,0 +1,341 @@
+*&---------------------------------------------------------------------*
+*& Include          Z03_FA24_GR08_UPEXO1_TESTS
+*&---------------------------------------------------------------------*
+CLASS lcl_test_sales_order DEFINITION FINAL FOR TESTING
+    DURATION SHORT
+    RISK LEVEL HARMLESS.
+
+  PRIVATE SECTION.
+    DATA: lt_so_headers TYPE TABLE OF ty_so_header,
+          lt_so_items   TYPE TABLE OF ty_so_item,
+          lt_messages   TYPE TABLE OF ty_message.
+
+    METHODS setup.
+    METHODS test_display_alv FOR TESTING.
+    METHODS test_filter_items FOR TESTING.
+*    METHODS test_sync_projects_data FOR TESTING.
+*    METHODS test_create_sales_orders FOR TESTING.
+
+ENDCLASS.
+
+CLASS lcl_test_sales_order IMPLEMENTATION.
+
+  METHOD setup.
+    " Set up sample sales order header data
+    CLEAR lt_so_headers.
+    APPEND VALUE #( SalesOrder = '100' OrderType = 'ZR' SalesOrg = 'FU24'
+                    DistChannel = 'FU' Division = 'FH' SalesOffice = 'FU02'
+                    SoldToParty = '1003149' ShipToParty = '1003149' CustRef = '3010'
+                    RequestedDelDate = '20241107' SalesDocCur = 'VND' PaymentTerms = '0001'
+                    ShippingCond = '01' PricingDate = '20241107' DeliveryBlock = '101'
+                    BillingBlock = '153' ) TO lt_so_headers.
+
+    APPEND VALUE #( SalesOrder = '101' OrderType = 'ZR' SalesOrg = 'FU24'
+                    DistChannel = 'FU' Division = 'FH' SalesOffice = 'FU02'
+                    SoldToParty = '1003149' ShipToParty = '1003149' CustRef = '3010'
+                    RequestedDelDate = '20241107' SalesDocCur = 'VND' PaymentTerms = '0001'
+                    ShippingCond = '01' PricingDate = '20241107' DeliveryBlock = '101'
+                    RefBillDocNum = '90000169' ) TO lt_so_headers.
+
+    APPEND VALUE #( SalesOrder = '102' OrderType = 'Z1' SalesOrg = 'FU24'
+                    DistChannel = 'FU' Division = 'FH' SalesOffice = 'FU02'
+                    SoldToParty = '1003146' ShipToParty = '1003146' CustRef = '1008'
+                    RequestedDelDate = '20241107' SalesDocCur = 'VND' PaymentTerms = '0001'
+                    ShippingCond = '01' PricingDate = '20241107' DeliveryBlock = 'D2' ) TO lt_so_headers.
+
+    " Set up sample sales order item data
+    CLEAR lt_so_items.
+    APPEND VALUE #( SalesOrder = '100' Material = 'EPAD2008' OrderQty = 1
+                     Item = '000010' ScheduleLine = '0001'
+                    DeliveryDate = '20241107' Plant = 'FU24' StorageLoc = 'TG01'
+                    ItemCat = 'ZREN' ConditionType = 'ZP00' NetPrice = 50 PriUnit = 1 ) TO lt_so_items.
+
+    APPEND VALUE #( SalesOrder = '101' Material = 'EPAD2008' OrderQty = 1
+                     Item = '000010' ScheduleLine = '0001'
+                    DeliveryDate = '20241107' Plant = 'FU24' StorageLoc = 'TG01'
+                    ItemCat = 'ZREN' ConditionType = 'ZP00' NetPrice = 50 PriUnit = 1 ) TO lt_so_items.
+
+    APPEND VALUE #( SalesOrder = '102' Material = 'EPAD2008' OrderQty = 1
+                     Item = '000010' ScheduleLine = '0001'
+                    DeliveryDate = '20241107' Plant = 'FU24' StorageLoc = 'TG01'
+                    ItemCat = 'ZTAN' ConditionType = 'ZP00' NetPrice = 50 PriUnit = 1 ) TO lt_so_items.
+
+    " Clear message handling data
+    CLEAR lt_messages.
+  ENDMETHOD.
+
+  METHOD test_display_alv.
+    PERFORM build_fieldcat USING lt_so_headers gv_headers_sheet.
+
+    " Ki#m tra c#u hình c#a t#ng tr##ng trong field catalog
+    LOOP AT gt_fieldcat INTO DATA(ls_fieldcat).
+      CASE ls_fieldcat-fieldname.
+        WHEN 'SALESORDER'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Sales Order'
+            msg = | Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'ORDERTYPE'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Order Type'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'SALESORG'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Sales Organization'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'DISTCHANNEL'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Distribution Channel'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'DIVISION'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Division'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'SALESOFFICE'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Sales Office'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'SALESGROUP'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Sales Group'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'SALESDISTRICT'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Sales District'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'SOLDTOPARTY'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Sold-to Party'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'SHIPTOPARTY'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Ship-to Party'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'CUSTREF'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Customer Reference'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'REQUESTEDDELDATE'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Requested Delivery Date'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'SALESDOCCUR'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Sales Document Currency'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'PAYMENTTERMS'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Payment Terms'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'SHIPPINGCOND'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Shipping Conditions'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'PRICINGDATE'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Pricing Date'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'DELIVERYBLOCK'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Delivery Block'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'BILLINGBLOCK'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Billing Block'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'ORDERREASON'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Order Reason'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'REFSONUM'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Reference Sales Order Number'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'REFBILLDOCNUM'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Reference Billing Document Number'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in header ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN OTHERS.
+          cl_abap_unit_assert=>fail(
+            msg = |Unexpected field "{ ls_fieldcat-fieldname }" found in header ALV field catalog|
+          ).
+      ENDCASE.
+    ENDLOOP.
+
+
+    " Step 1: Build field catalog for item ALV display
+    PERFORM build_fieldcat USING lt_so_items gv_items_sheet.
+
+    " Step 2: Loop through field catalog and assert on each field for the item ALV
+    LOOP AT gt_fieldcat INTO ls_fieldcat.
+      CASE ls_fieldcat-fieldname.
+        WHEN 'SALESORDER'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext exp = 'Sales Order'
+          ).
+        WHEN 'MATERIAL'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Material'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'ORDERQTY'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Order Quantity'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'ORDERQTYUNIT'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Order Quantity Unit'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'ITEM'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Item'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'SCHEDULELINE'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Schedule Line'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'DELIVERYDATE'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Delivery Date'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'PLANT'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Plant'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'STORAGELOC'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Storage Location'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'ITEMCAT'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Item Category'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'CONDITIONTYPE'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Condition Type'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'NETPRICE'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Net Price'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN 'PRIUNIT'.
+          cl_abap_unit_assert=>assert_equals(
+            act = ls_fieldcat-reptext
+            exp = 'Pricing Unit'
+            msg = |Field label mismatch for { ls_fieldcat-fieldname } in item ALV: { ls_fieldcat-reptext } |
+          ).
+        WHEN OTHERS.
+          cl_abap_unit_assert=>fail(
+            msg = |Unexpected field "{ ls_fieldcat-fieldname }" found in item ALV field catalog|
+          ).
+      ENDCASE.
+    ENDLOOP.
+
+  ENDMETHOD.
+
+
+
+  METHOD test_filter_items.
+    DATA: lv_salesorder TYPE vbeln_va VALUE '100',
+          lv_line_color TYPE char4 VALUE ''.
+
+    " Th#c hi#n l#c
+    PERFORM filter_items USING lv_salesorder lv_line_color.
+
+    " Xác nh#n r#ng ch# các items thu#c Sales Order #ã cho ###c l#c
+    LOOP AT gt_so_items_filtered INTO DATA(ls_filtered_item).
+      cl_abap_unit_assert=>assert_equals( act = ls_filtered_item-salesorder
+       exp = 'SO12345').
+    ENDLOOP.
+  ENDMETHOD.
+
+*  METHOD test_conversion.
+*
+*    PERFORM add_padding_multiple_fields USING .
+*    assert = test_so_header-SalesOrder = '000123456'.
+*  ENDMETHOD.
+
+*  METHOD test_sync_projects_data.
+*    " Chu#n b# d# li#u gi# l#p
+*    APPEND VALUE #(  SalesOrder = 'SO12345'
+*                  Material = 'MAT002'
+*                  OrderQty = 10
+*                  Index = 1  ) TO gt_so_items_filtered.
+*
+*    " ##ng b# hóa thay ##i t# b#ng #ã l#c v# b#ng d# li#u g#c
+*    PERFORM check_save_and_sync_changes.
+*
+*    " Ki#m tra xem d# li#u #ã ##ng b# ch#a
+*    READ TABLE lt_so_items INTO DATA(ls_so_item) INDEX 1.
+*    cl_abap_unit_assert=>assert_equals( act = ls_so_item-Material exp = 'MAT002' ).
+*    cl_abap_unit_assert=>assert_equals( act = ls_so_item-OrderQty exp = 10 ).
+*  ENDMETHOD.
+
+
+
+ENDCLASS.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

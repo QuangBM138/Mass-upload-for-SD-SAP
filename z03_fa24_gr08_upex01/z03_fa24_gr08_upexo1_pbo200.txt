@@ -1,0 +1,22 @@
+*&---------------------------------------------------------------------*
+*& Include          Z03_FA24_GR08_UPEXO1_PBO200
+*&---------------------------------------------------------------------*
+
+*&---------------------------------------------------------------------*
+*& Module STATUS_0200 OUTPUT
+*&---------------------------------------------------------------------*
+*& Sets up the status and title for screen 200 and displays messages in ALV format
+*&---------------------------------------------------------------------*
+MODULE status_0200 OUTPUT.
+  " Set the GUI status for screen 200
+  SET PF-STATUS 'ZSTATUS_002'.
+
+  " Set the title bar for screen 200
+  SET TITLEBAR 'ZTITLE_002'.
+
+  " Call subroutine to display messages in ALV grid for screen 200
+  PERFORM dislay_mess_in_alv_0200.
+ENDMODULE.
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757
