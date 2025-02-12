@@ -16,3 +16,4 @@ This project is designed to create multiple sales orders in SAP's Sales and Dist
   - ALV (ABAP List Viewer) for displaying data
   - BAPI (Business Application Programming Interface) for processing the creation of sales orders
   - Compatibility with multiple platforms for uploading
+  - BDC (Batch Data Communication) for viewing newly created SO in tcode va03
