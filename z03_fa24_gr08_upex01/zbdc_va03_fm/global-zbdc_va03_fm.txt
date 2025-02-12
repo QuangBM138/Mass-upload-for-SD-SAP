@@ -1,0 +1,6 @@
+FUNCTION-POOL Z03_GFA24.                    "MESSAGE-ID ..
+
+* INCLUDE LZ03_GFA24D...                     " Local class definition
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

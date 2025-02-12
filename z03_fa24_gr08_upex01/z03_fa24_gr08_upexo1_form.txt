@@ -2412,6 +2412,7 @@ ENDFORM.
 *& Sets up the ALV grid to display messages within a custom container.
 *&---------------------------------------------------------------------*
 FORM dislay_mess_in_alv_0200.
+  DATA: lo_event_handler TYPE REF TO gcl_event_handler.
 
   " Create a new Custom Container for the message log table if it doesn't exist
   IF go_custom_container_messages IS INITIAL.
@@ -2425,6 +2426,10 @@ FORM dislay_mess_in_alv_0200.
     CREATE OBJECT go_alv_grid_messages
       EXPORTING
         i_parent = go_custom_container_messages.
+    IF lo_event_handler IS INITIAL.
+      CREATE OBJECT lo_event_handler.
+      SET HANDLER lo_event_handler->handle_double_click FOR go_alv_grid_messages.
+    ENDIF.
   ENDIF.
 
   " Clear and build the field catalog for the message log ALV

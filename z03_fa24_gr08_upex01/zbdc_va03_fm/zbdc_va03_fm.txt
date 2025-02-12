@@ -1,0 +1,54 @@
+FUNCTION ZBDC_VA03_FM.
+*"----------------------------------------------------------------------
+*"*"Local Interface:
+*"  IMPORTING
+*"     VALUE(CTU) LIKE  APQI-PUTACTIVE DEFAULT 'X'
+*"     VALUE(MODE) LIKE  APQI-PUTACTIVE DEFAULT 'N'
+*"     VALUE(UPDATE) LIKE  APQI-PUTACTIVE DEFAULT 'L'
+*"     VALUE(GROUP) LIKE  APQI-GROUPID OPTIONAL
+*"     VALUE(USER) LIKE  APQI-USERID OPTIONAL
+*"     VALUE(KEEP) LIKE  APQI-QERASE OPTIONAL
+*"     VALUE(HOLDDATE) LIKE  APQI-STARTDATE OPTIONAL
+*"     VALUE(NODATA) LIKE  APQI-PUTACTIVE DEFAULT '/'
+*"     VALUE(VBELN_001) LIKE  BDCDATA-FVAL DEFAULT '177'
+*"  EXPORTING
+*"     VALUE(SUBRC) LIKE  SYST-SUBRC
+*"  TABLES
+*"      MESSTAB STRUCTURE  BDCMSGCOLL OPTIONAL
+*"----------------------------------------------------------------------
+
+subrc = 0.
+
+perform bdc_nodata      using NODATA.
+
+perform open_group      using GROUP USER KEEP HOLDDATE CTU.
+
+perform bdc_dynpro      using 'SAPMV45A' '0102'.
+perform bdc_field       using 'BDC_CURSOR'
+                              'VBAK-VBELN'.
+perform bdc_field       using 'BDC_OKCODE'
+                              '=ENT2'.
+perform bdc_field       using 'VBAK-VBELN'
+                              VBELN_001.
+perform bdc_dynpro      using 'SAPMV45A' '4001'.
+perform bdc_transaction tables messtab
+using                         'VA03'
+                              CTU
+                              MODE
+                              UPDATE.
+if sy-subrc <> 0.
+  subrc = sy-subrc.
+  exit.
+endif.
+
+perform close_group using     CTU.
+
+
+
+
+
+ENDFUNCTION.
+INCLUDE BDCRECXY .
+
+----------------------------------------------------------------------------------
+Extracted by Mass Download version 1.5.5 - E.G.Mellodew. 1998-2025. Sap Release 757

@@ -89,6 +89,41 @@ CLASS gcl_event_handler IMPLEMENTATION.
                  WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 DISPLAY LIKE 'E'.
     ENDIF.
   ENDMETHOD.                    " handle_changed_finished
+
+  METHOD handle_double_click.
+    DATA: lv_so TYPE bdcdata-fval.  " Ki#u d# li#u c#a s# Sales Order
+
+    " Ki#m tra xem ng##i dùng có double-click vào c#t SO hay không
+    IF e_column-fieldname = 'SO'.
+      " L#y giá tr# c#a ô ###c double-click
+      READ TABLE gt_messages INTO DATA(ls_message) INDEX e_row-index.
+      IF sy-subrc = 0.
+        lv_so = CONV bdcdata-fval( ls_message-so ).
+
+        IF lv_so IS NOT INITIAL.
+*          PERFORM add_padding_multiple_fields USING lv_so.
+        CALL FUNCTION 'ZBDC_VA03_FM'
+          EXPORTING
+*           CTU       = 'X'
+           MODE      = 'E'
+*           UPDATE    = 'L'
+*           GROUP     =
+*           USER      =
+*           KEEP      =
+*           HOLDDATE  =
+*           NODATA    = '/'
+            vbeln_001 = lv_so
+*         IMPORTING
+*           SUBRC     =
+*         TABLES
+*           MESSTAB   =
+          .
+        ENDIF.
+
+
+      ENDIF.
+    ENDIF.
+  ENDMETHOD.
 ENDCLASS.
 
 ----------------------------------------------------------------------------------
