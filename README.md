@@ -17,3 +17,6 @@ This project is designed to create multiple sales orders in SAP's Sales and Dist
   - BAPI (Business Application Programming Interface) for processing the creation of sales orders
   - Compatibility with multiple platforms for uploading
   - BDC (Batch Data Communication) for viewing newly created SO in tcode va03
+
+
+![image](https://github.com/user-attachments/assets/7c025a33-f87d-405b-bc61-cee82ae4a2a9)
